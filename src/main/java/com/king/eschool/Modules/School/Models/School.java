@@ -4,7 +4,14 @@ package com.king.eschool.Modules.School.Models;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import com.king.eschool.Modules.School.Dto.SchoolStatus;
 
 @Entity
 @Table(name = "schools")
@@ -42,33 +49,32 @@ public class School {
 
     @Column(unique = true, length = 150)
     private String domain;
-
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private SchoolStatus status;
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private SchoolStatus status = SchoolStatus.PENDING;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @OneToMany(mappedBy = "school", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Campus> campuses = new ArrayList<>();
+
+    @OneToMany(mappedBy = "school", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Subscription> subscriptions = new ArrayList<>();
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
+    @UpdateTimestamp
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    @PrePersist
-    public void prePersist() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.status == null) this.status = SchoolStatus.PENDING;
-    }
-
-    @PreUpdate
-    public void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public enum SchoolStatus {
-        ACTIVE, PENDING, SUSPENDED, DELETED
+    public void addCampus(Campus campus) {
+        campuses.add(campus);
+     //   campus.setSchool(this);
     }
 }

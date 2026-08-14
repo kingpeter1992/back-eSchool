@@ -18,8 +18,10 @@ public class Subscription {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
-    @Column(name = "school_id", nullable = false)
-    private UUID schoolId;
+    // 🔴 Il FAUT que cette variable s'appelle exactement "school"
+    @ManyToOne
+    @JoinColumn(name = "school_id")
+    private School school;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "plan_type", nullable = false)

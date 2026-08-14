@@ -1,6 +1,8 @@
 package com.king.eschool.Modules.School.Dto.request;
 
 
+import org.springframework.web.multipart.MultipartFile;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
@@ -16,4 +18,7 @@ public class SchoolRequestDto {
     private String currency;
     private String timezone;
     private String domain;
+
+    // Fichier logo optionnel lors de la création / modification
+    private MultipartFile logoFile;
 }

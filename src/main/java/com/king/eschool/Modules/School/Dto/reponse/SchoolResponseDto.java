@@ -2,8 +2,11 @@ package com.king.eschool.Modules.School.Dto.reponse;
 
 
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
+import com.king.eschool.Modules.School.Dto.SchoolStatus;
 import com.king.eschool.Modules.School.Models.School;
 
 import lombok.*;
@@ -22,6 +25,8 @@ public class SchoolResponseDto {
     private String currency;
     private String timezone;
     private String domain;
-    private School.SchoolStatus status; // Doit correspondre au type de l'entité
+    private SchoolStatus status; // Doit correspondre au type de l'entité
+    List<CampusResponse> campuses;
+    LocalDateTime createdAt;
 
 }

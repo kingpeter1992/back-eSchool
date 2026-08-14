@@ -17,8 +17,9 @@ public class Campus {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
-    @Column(name = "school_id", nullable = false)
-    private UUID schoolId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "school_id", nullable = false)
+    private School school;
 
     @Column(nullable = false, length = 150)
     private String name;
