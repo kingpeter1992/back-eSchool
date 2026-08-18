@@ -18,6 +18,7 @@ import com.king.eschool.Modules.School.Repository.SchoolRepository;
 import com.king.eschool.shared.Storage.Services.FileStorageService;
 import com.king.eschool.shared.Storage.dtoResponse.FileDocumentResponse;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
@@ -87,8 +88,8 @@ public class SchoolServiceImpl implements ISchoolService {
         School savedSchool = schoolRepository.save(school);
 
         // 2. Si un fichier logo est fourni à la création, on l'uploade
-        if (requestDto.getLogoFile() != null && !requestDto.getLogoFile().isEmpty()) {
-            String logoUrl = processLogoUpload(savedSchool.getId(), requestDto.getLogoFile());
+        if (requestDto.getLogo() != null && !requestDto.getLogo().isEmpty()) {
+            String logoUrl = processLogoUpload(savedSchool.getId(), requestDto.getLogo());
             savedSchool.setLogoUrl(logoUrl);
             savedSchool = schoolRepository.save(savedSchool);
         }
@@ -97,38 +98,39 @@ public class SchoolServiceImpl implements ISchoolService {
     }
 
     @Override
-    @Transactional
-    @Auditable(action = "UPDATE", targetEntity = "SCHOOL")
-    public SchoolResponseDto updateSchool(UUID id, SchoolRequestDto requestDto) {
-        School school = schoolRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new RuntimeException("Établissement introuvable."));
+@Transactional
+@Auditable(action = "UPDATE", targetEntity = "SCHOOL")
+public SchoolResponseDto updateSchool(UUID id, SchoolRequestDto requestDto) {
+    School school = schoolRepository.findByIdAndDeletedAtIsNull(id)
+            .orElseThrow(() -> new EntityNotFoundException("Établissement introuvable.")); // Utiliser une exception dédiée
 
-        school.setName(requestDto.getName());
-        school.setEmail(requestDto.getEmail());
-        school.setPhone(requestDto.getPhone());
-        if (requestDto.getCurrency() != null)
-            school.setCurrency(requestDto.getCurrency());
-        if (requestDto.getTimezone() != null)
-            school.setTimezone(requestDto.getTimezone());
-        if (requestDto.getDomain() != null)
-            school.setDomain(requestDto.getDomain());
+    school.setName(requestDto.getName());
+    school.setEmail(requestDto.getEmail());
+    school.setPhone(requestDto.getPhone());
+    
+    if (requestDto.getCurrency() != null) school.setCurrency(requestDto.getCurrency());
+    if (requestDto.getTimezone() != null) school.setTimezone(requestDto.getTimezone());
+    if (requestDto.getDomain() != null) school.setDomain(requestDto.getDomain());
 
-        // Si un nouveau fichier logo est envoyé lors de la modification
-        if (requestDto.getLogoFile() != null && !requestDto.getLogoFile().isEmpty()) {
-            // Suppression de l'ancien logo Supabase s'il existe
-            if (school.getLogoUrl() != null && !school.getLogoUrl().isBlank()) {
-                try {
-                    fileStorageService.deleteFileByUrl(school.getLogoUrl());
-                } catch (Exception ignored) {
-                }
+    // 🟢 Traitement du logo uniquement si un nouveau fichier valide est fourni
+    if (requestDto.getLogo() != null && !requestDto.getLogo().isEmpty()) {
+        
+        // Supprimer l'ancien logo si présent
+        if (school.getLogoUrl() != null && !school.getLogoUrl().isBlank()) {
+            try {
+                fileStorageService.deleteFileByUrl(school.getLogoUrl());
+            } catch (Exception e) {
+                new RuntimeException("Impossible de supprimer l'ancien logo Supabase: {}" +e.getMessage());
             }
-            String newLogoUrl = processLogoUpload(school.getId(), requestDto.getLogoFile());
-            school.setLogoUrl(newLogoUrl);
         }
-
-        School updated = schoolRepository.save(school);
-        return toDto(updated);
+        
+        String newLogoUrl = processLogoUpload(school.getId(), requestDto.getLogo());
+        school.setLogoUrl(newLogoUrl);
     }
+
+    School updated = schoolRepository.save(school);
+    return toDto(updated);
+}
 
     @Override
     @Transactional

@@ -3,12 +3,14 @@ package com.king.eschool.Modules.Utilisateurs.Dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 import java.util.Set;
 import java.util.UUID;
 
 @Data
 public class CreateUserDto {
+   
     @NotBlank
     private String firstName;
     @NotBlank
@@ -18,5 +20,6 @@ public class CreateUserDto {
     private String phone;
     private UUID schoolId;
     private UUID campusId;
-    private Set<String> roleSlugs; // Ex: ["ROLE_SCHOOL_ADMIN"]
+    @NotEmpty(message = "Au moins un rôle est obligatoire")
+    private Set<UUID> roleIds; // 🟢 Utilisation de roleIds (UUID)
 }

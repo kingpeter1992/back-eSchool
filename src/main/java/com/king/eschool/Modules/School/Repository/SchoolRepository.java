@@ -18,4 +18,5 @@ public interface SchoolRepository extends JpaRepository<School, UUID> {
     Optional<School> findByIdAndDeletedAtIsNull(UUID id);    
     List<School> findByDeletedAtIsNull();
     List<School> findByStatusAndDeletedAtIsNull(SchoolStatus status);
+    boolean existsByIdAndDeletedAtIsNull(UUID uuid);
 }

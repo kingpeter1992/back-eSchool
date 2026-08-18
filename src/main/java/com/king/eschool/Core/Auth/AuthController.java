@@ -2,7 +2,7 @@ package com.king.eschool.Core.Auth;
 
 import lombok.RequiredArgsConstructor;
 
-
+import java.time.LocalDateTime;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -16,7 +16,10 @@ import com.king.eschool.Core.dtoRequest.LoginRequest;
 import com.king.eschool.Core.dtoRequest.ResetPasswordRequest;
 import com.king.eschool.Core.dtoResponse.AuthResponse;
 import com.king.eschool.Core.dtoResponse.UserResponse;
+import com.king.eschool.Modules.Utilisateurs.Dto.request.ActivationContextDto;
+import com.king.eschool.Modules.Utilisateurs.Dto.request.CompleteActivationDto;
 import com.king.eschool.Modules.Utilisateurs.Dto.request.CreateUserDto;
+import com.king.eschool.Modules.Utilisateurs.Models.Role;
 import com.king.eschool.Modules.Utilisateurs.Models.User;
 import com.king.eschool.Modules.Utilisateurs.ServiceImplement.UserServiceImpl;
 import jakarta.validation.Valid;
@@ -106,5 +109,39 @@ public ResponseEntity<?> activateAccount(
                         "message",
                         "Mot de passe réinitialisé avec succès."));
     }
+
+
+    @GetMapping("/api/v1/auth/verify-activation-token")
+public ResponseEntity<ActivationContextDto> verifyToken(@RequestParam("token") String token) {
+    User user = authService.findByActivationToken(token)
+            .orElseThrow(() -> new IllegalArgumentException("Token invalide ou introuvable."));
+
+    if (user.getActivationTokenExpiry().isBefore(LocalDateTime.now())) {
+        throw new IllegalStateException("Le token d'activation a expiré.");
+    }
+
+    // Récupération du rôle principal pour déterminer le formulaire
+    String primaryRole = user.getRoles().stream()
+            .map(Role::getSlug)
+            .findFirst()
+            .orElse("");
+
+    ActivationContextDto response = ActivationContextDto.builder()
+            .email(user.getEmail())
+            .firstName(user.getFirstName())
+            .lastName(user.getLastName())
+            .role(primaryRole) // Ex: ROLE_DIRECTEUR, ROLE_PARENT, ROLE_ELEVE, ROLE_ADMIN_ECOLE
+            .schoolId(user.getSchoolId())
+            .build();
+
+    return ResponseEntity.ok(response);
+}
+
+
+@PostMapping("/api/v1/auth/complete-activation")
+public ResponseEntity<Void> completeActivation(@Valid @RequestBody CompleteActivationDto dto) {
+    authService.completeUserActivation(dto);
+    return ResponseEntity.ok().build();
+}
 
 }

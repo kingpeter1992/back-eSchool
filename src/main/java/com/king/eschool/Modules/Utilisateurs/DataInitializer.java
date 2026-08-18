@@ -3,6 +3,7 @@ package com.king.eschool.Modules.Utilisateurs;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.king.eschool.Modules.Utilisateurs.Models.Permission;
 import com.king.eschool.Modules.Utilisateurs.Models.Role;
@@ -14,6 +15,7 @@ import com.king.eschool.Modules.Utilisateurs.Repository.UserRepository;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Component
@@ -35,112 +37,107 @@ public class DataInitializer implements CommandLineRunner {
         }
 
         @Override
+        @Transactional // 🟢 Indispensable pour garder la session Hibernate ouverte lors de
+                       // l'enregistrement des relations
         public void run(String... args) throws Exception {
 
-                // ==========================
-                // 1. Création des permissions de base (exemples)
-                // ==========================
-                Permission pUserCreate = permissionRepository.findBySlug("user:create")
-                                .orElseGet(() -> permissionRepository.save(
-                                                Permission.builder()
-                                                                .name("Créer un utilisateur")
-                                                                .slug("user:create")
-                                                                .code("USER_CREATE")
-                                                                .build()));
+                // ==========================================
+                // 1. Création / Mise à jour des permissions
+                // ==========================================
+                Permission pUserCreate = createPermissionIfNotFound("Créer un utilisateur", "user:create",
+                                "USER_CREATE");
+                Permission pSchoolCreate = createPermissionIfNotFound("Créer une école", "school:create",
+                                "SCHOOL_CREATE");
+                Permission pSchoolRead = createPermissionIfNotFound("Lire les écoles", "school:read.all",
+                                "SCHOOL_READ_ALL");
 
-                Permission pSchoolCreate = permissionRepository.findBySlug("school:create")
-                                .orElseGet(() -> permissionRepository.save(
-                                                Permission.builder()
-                                                                .name("Créer une école")
-                                                                .slug("school:create")
-                                                                .code("SCHOOL_CREATE")
-                                                                .build()));
-
-                // Récupération dynamique de TOUTES les permissions existantes en base
+                // Charger TOUTES les permissions existantes
                 Set<Permission> allPermissions = new HashSet<>(permissionRepository.findAll());
 
+                // ==========================================
+                // 2. Création / Mise à jour des Rôles
+                // ==========================================
 
-                // ==========================
-                // 2. Création des rôles
-                // ==========================
+                // Rôle SUPER_ADMIN (Recherche ou création)
+                Role superAdminRole = roleRepository.findBySlug("ROLE_SUPER_ADMIN")
+                                .orElseGet(() -> roleRepository.save(
+                                                Role.builder()
+                                                                .name("Super Administrateur")
+                                                                .slug("ROLE_SUPER_ADMIN")
+                                                                .system(true)
+                                                                .build()));
 
-                // Rôle SUPER_ADMIN (On lui attribue TOUTES les permissions par défaut)
-                Role superAdminRole = roleRepository.findBySlug("ROLE_SUPER_ADMIN").orElseGet(() -> {
-                        return roleRepository.save(
-                                        Role.builder()
-                                                        .name("Super Administrateur")
-                                                        .slug("ROLE_SUPER_ADMIN")
-                                                        .system(true)
-                                                        .permissions(allPermissions) // <-- Toutes les permissions
-                                                        .build());
-                });
+                // 🟢 S'assurer que SUPER_ADMIN possède TOUJOURS toutes les permissions
+                superAdminRole.setPermissions(allPermissions);
+                roleRepository.save(superAdminRole);
 
                 // Rôle ADMIN_ECOLE
                 if (roleRepository.findBySlug("ROLE_ADMIN_ECOLE").isEmpty()) {
-                        Set<Permission> schoolAdminPermissions = new HashSet<>(Arrays.asList(pUserCreate));
                         roleRepository.save(
                                         Role.builder()
                                                         .name("Administrateur d'École / Directeur")
                                                         .slug("ROLE_ADMIN_ECOLE")
                                                         .system(true)
-                                                        .permissions(schoolAdminPermissions)
+                                                        .permissions(Set.of(pUserCreate, pSchoolRead))
                                                         .build());
                 }
 
                 // Rôle ENSEIGNANT
-                if (roleRepository.findBySlug("ROLE_ENSEIGNANT").isEmpty()) {
-                        roleRepository.save(
-                                        Role.builder()
-                                                        .name("Enseignant")
-                                                        .slug("ROLE_ENSEIGNANT")
-                                                        .system(true)
-                                                        .build());
-                }
+                createRoleIfNotFound("Enseignant", "ROLE_ENSEIGNANT");
 
                 // Rôle ELEVE
-                if (roleRepository.findBySlug("ROLE_ELEVE").isEmpty()) {
-                        roleRepository.save(
-                                        Role.builder()
-                                                        .name("Élève")
-                                                        .slug("ROLE_ELEVE")
-                                                        .system(true)
-                                                        .build());
-                }
+                createRoleIfNotFound("Élève", "ROLE_ELEVE");
 
                 // Rôle PARENT
-                if (roleRepository.findBySlug("ROLE_PARENT").isEmpty()) {
-                        roleRepository.save(
-                                        Role.builder()
-                                                        .name("Parent")
-                                                        .slug("ROLE_PARENT")
-                                                        .system(true)
-                                                        .build());
-                }
+                createRoleIfNotFound("Parent", "ROLE_PARENT");
 
-
-                // ==========================
-                // 3. Création du Super Admin (Avec TOUS les rôles)
-                // ==========================
+                // ==========================================
+                // 3. Création du compte Super Admin
+                // ==========================================
                 if (!userRepository.existsByUsername("superadmin")) {
-
-                        // Récupération de TOUS les rôles de la base de données
-                        Set<Role> allRoles = new HashSet<>(roleRepository.findAll());
 
                         User defaultSuperAdmin = User.builder()
                                         .username("superadmin")
                                         .email("kingkapeta@gmail.com")
                                         .firstName("Super")
                                         .lastName("Admin")
-                                        .status(UserStatus.ACTIVE)                                        
+                                        .status(UserStatus.ACTIVE)
                                         .passwordHash(passwordEncoder.encode("SuperAdmin2026!"))
                                         .active(true)
-                                        .roles(allRoles) // <-- Assigne TOUS les rôles d'un coup
+                                        .roles(Set.of(superAdminRole)) // 🟢 Uniquement le rôle SUPER_ADMIN !
                                         .build();
 
                         userRepository.save(defaultSuperAdmin);
 
+//Permission p1 = new Permission("Consulter les Rôles", "role:read.all", "Gestion des Rôles");
+//Permission p2 = new Permission("Modifier les Rôles", "role:update", "Gestion des Rôles");
+//permissionRepository.saveAll(List.of(p1, p2));
+
                         System.out.println(
-                                        "✅ [SÉCURITÉ] Compte Super Admin créé avec succès avec TOUS les rôles et permissions !");
+                                        "✅ [SÉCURITÉ] Compte Super Admin créé avec succès avec le rôle ROLE_SUPER_ADMIN !");
+                }
+        }
+
+        // 🛠️ Méthodes utilitaires pour garder le code propre :
+
+        private Permission createPermissionIfNotFound(String name, String slug, String code) {
+                return permissionRepository.findBySlug(slug)
+                                .orElseGet(() -> permissionRepository.save(
+                                                Permission.builder()
+                                                                .name(name)
+                                                                .slug(slug)
+                                                                .code(code)
+                                                                .build()));
+        }
+
+        private void createRoleIfNotFound(String name, String slug) {
+                if (roleRepository.findBySlug(slug).isEmpty()) {
+                        roleRepository.save(
+                                        Role.builder()
+                                                        .name(name)
+                                                        .slug(slug)
+                                                        .system(true)
+                                                        .build());
                 }
         }
 }

@@ -20,5 +20,5 @@ public class SchoolRequestDto {
     private String domain;
 
     // Fichier logo optionnel lors de la création / modification
-    private MultipartFile logoFile;
+    private MultipartFile logo;
 }

@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.UUID;
 
 import com.king.eschool.Modules.School.Dto.SchoolStatus;
-import com.king.eschool.Modules.School.Models.School;
 
 import lombok.*;
 
@@ -29,4 +28,12 @@ public class SchoolResponseDto {
     List<CampusResponse> campuses;
     LocalDateTime createdAt;
 
+
+// Statistiques affichées dans le dashboard
+private Long totalStudents;
+private Long totalTeachers;
+private Long totalCourses;
+private Long totalClasses;
+private Long  totalParents;
+private Long totalCampuses;
 }

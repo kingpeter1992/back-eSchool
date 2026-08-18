@@ -34,30 +34,45 @@ public class SecurityConfig {
 
         private final JwtAuthenticationFilter jwtFilter;
         private final UserRepository userRepository;
+        private final Config config;
 
-        @Bean
-        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    return http
+            // 1. Désactiver CSRF (indispensable pour API REST Stateless)
+            .csrf(csrf -> csrf.disable())
 
-                return http
-                                .csrf(csrf -> csrf.disable())
-                                .cors(cors -> {
-                                })
-                                .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                                                .requestMatchers("/api/files/upload").permitAll()
-                                                .requestMatchers("/api/files/**").permitAll()
-                                                .requestMatchers(
-                                                                 "/api/auth/**",
-                                                                "/api/auth/register",
-                                                                "/api/auth/login")
-                                                .permitAll()
-                                                .anyRequest().authenticated())
-                                .sessionManagement(session -> session
-                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                                .authenticationProvider(authenticationProvider())
-                                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-                                .build();
-        }
+            // 2. Configuration CORS intégrée
+            .cors(cors -> cors.configurationSource(config.corsConfigurationSource()))
+
+            // 3. Gestion des autorisations de requêtes
+            .authorizeHttpRequests(auth -> auth
+                    // Autoriser toutes les requêtes de pré-vérification CORS (Pre-flight OPTIONS)
+                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                    // Fichiers publics
+                    .requestMatchers("/api/files/**").permitAll()
+
+                    // Endpoints d'authentification (login, register, forgot-password, reset-password, etc.)
+                    .requestMatchers("/api/auth/**").permitAll()
+
+                    // Endpoints réservés à l'administrateur
+                    .requestMatchers("/api/v1/**").hasAuthority("ROLE_SUPER_ADMIN")
+
+                    // Tout le reste nécessite une authentification via JWT
+                    .anyRequest().authenticated()
+            )
+
+            // 4. Gestion de la session (Stateless car JWT)
+            .sessionManagement(session -> session
+                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
+
+            // 5. Provider & Filtre JWT
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+            .build();
+}
 
         @Bean
         public UserDetailsService userDetailsService() {

@@ -1,6 +1,7 @@
 package com.king.eschool.Modules.School.Controller;
 
-import jakarta.validation.Valid;
+
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -29,20 +30,24 @@ public class SchoolController {
     }
 
     @GetMapping("/{id}")
-  @PreAuthorize("hasAuthority('school:read')")
+    //@PreAuthorize("hasAuthority('school:read')")
+    @PreAuthorize("hasAnyAuthority('school:read', 'school:read.all') or hasRole('SUPER_ADMIN')")
     public ResponseEntity<SchoolResponseDto> getSchoolById(@PathVariable UUID id) {
         return ResponseEntity.ok(schoolService.getSchoolById(id));
     }
 
     @PostMapping
   @PreAuthorize("hasAuthority('school:create')")
-    public ResponseEntity<SchoolResponseDto> createSchool(@Valid @RequestBody SchoolRequestDto requestDto) {
+    public ResponseEntity<SchoolResponseDto> createSchool(
+        @ModelAttribute SchoolRequestDto requestDto) {
         return ResponseEntity.ok(schoolService.createSchool(requestDto));
     }
 
-    @PutMapping("/{id}")
-  @PreAuthorize("hasAuthority('school:update')")
-    public ResponseEntity<SchoolResponseDto> updateSchool(@PathVariable UUID id, @Valid @RequestBody SchoolRequestDto requestDto) {
+   @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE) // 🟢 Ajout du consumes
+    public ResponseEntity<SchoolResponseDto> updateSchool(
+            @PathVariable UUID id,
+            @ModelAttribute SchoolRequestDto requestDto // 🟢 @ModelAttribute au lieu de @RequestBody
+    ) {
         return ResponseEntity.ok(schoolService.updateSchool(id, requestDto));
     }
 

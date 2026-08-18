@@ -16,6 +16,7 @@ import com.king.eschool.Core.dtoResponse.UserAuthInfo;
 import com.king.eschool.Core.jwt.JwtService;
 import com.king.eschool.Modules.School.Models.School;
 import com.king.eschool.Modules.School.Repository.SchoolRepository;
+import com.king.eschool.Modules.Utilisateurs.Dto.request.CompleteActivationDto;
 import com.king.eschool.Modules.Utilisateurs.Dto.request.CreateUserDto;
 import com.king.eschool.Modules.Utilisateurs.Models.Permission;
 import com.king.eschool.Modules.Utilisateurs.Models.Role;
@@ -23,8 +24,11 @@ import com.king.eschool.Modules.Utilisateurs.Models.User;
 import com.king.eschool.Modules.Utilisateurs.Repository.RoleRepository;
 import com.king.eschool.Modules.Utilisateurs.Repository.UserRepository;
 
+import jakarta.validation.Valid;
+
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -66,14 +70,21 @@ public class UserServiceImpl {
                         throw new IllegalArgumentException("L'adresse email est déjà utilisée.");
                 }
 
-                Set<Role> assignedRoles = dto.getRoleSlugs().stream()
-                                .map(slug -> roleRepository.findBySlug(slug)
-                                                .orElseThrow(() -> new RuntimeException("Rôle introuvable : " + slug)))
+                // 1. Recherche des rôles par UUID (findById)
+                Set<Role> assignedRoles = dto.getRoleIds().stream()
+                                .map(id -> roleRepository.findById(id)
+                                                .orElseThrow(() -> new RuntimeException(
+                                                                "Rôle introuvable avec l'ID : " + id)))
                                 .collect(Collectors.toSet());
 
+                // 2. Vérification sécurisée du rôle SUPER_ADMIN (gestion des valeurs nulles sur
+                // slug/code)
                 boolean isSuperAdmin = assignedRoles.stream()
-                                .anyMatch(role -> role.getSlug().equals("ROLE_SUPER_ADMIN"));
+                                .anyMatch(role -> role.getSlug() != null &&
+                                                (role.getSlug().equalsIgnoreCase("ROLE_SUPER_ADMIN") ||
+                                                                role.getSlug().equalsIgnoreCase("SUPER_ADMIN")));
 
+                // 3. Validation de l'établissement rattaché
                 UUID targetSchoolId = null;
                 if (!isSuperAdmin) {
                         if (dto.getSchoolId() == null) {
@@ -85,9 +96,10 @@ public class UserServiceImpl {
                         targetSchoolId = school.getId();
                 }
 
-                // Génération du token unique d'activation
+                // 4. Génération du token unique d'activation
                 String activationToken = UUID.randomUUID().toString();
 
+                // 5. Construction du nouvel utilisateur
                 User user = User.builder()
                                 .schoolId(targetSchoolId)
                                 .campusId(dto.getCampusId())
@@ -98,21 +110,25 @@ public class UserServiceImpl {
                                 .phone(dto.getPhone())
                                 .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString())) // Mot de passe
                                                                                                     // temporaire
-                                                                                                    // aléatoire
                                 .status(User.UserStatus.PENDING_ACTIVATION)
                                 .activationToken(activationToken)
-                                .activationTokenExpiry(LocalDateTime.now().plusHours(48)) // Expiration dans 48h
+                                .activationTokenExpiry(LocalDateTime.now().plusHours(48))
                                 .roles(assignedRoles)
                                 .build();
 
                 User savedUser = userRepository.save(user);
 
-                // Envoi effectif du vrai e-mail via le SMTP Gmail configuré
+                // 6. Envoi de l'e-mail d'activation
                 emailServiceImpl.sendActivationEmail(savedUser.getEmail(), savedUser.getFirstName(), activationToken);
 
-                // Journal d'audit
-                auditService.logAction(savedUser.getId(), savedUser.getEmail(), targetSchoolId, "USER_CREATED",
-                                "Création du compte et envoi de l'e-mail d'activation.", "SYSTEM");
+                // 7. Journal d'audit
+                auditService.logAction(
+                                savedUser.getId(),
+                                savedUser.getEmail(),
+                                targetSchoolId,
+                                "USER_CREATED",
+                                "Création du compte et envoi de l'e-mail d'activation.",
+                                "SYSTEM");
 
                 return savedUser;
         }
@@ -373,4 +389,56 @@ public class UserServiceImpl {
                                 .filter(u -> u.getDeletedAt() == null)
                                 .collect(Collectors.toList());
         }
+
+       /**
+     * Recherche un utilisateur par son token d'activation
+     */
+    public Optional<User> findByActivationToken(String token) {
+        return userRepository.findByActivationToken(token);
+    }
+
+    /**
+     * Finalise l'activation du compte utilisateur
+     */
+    @Transactional
+    public void completeUserActivation(CompleteActivationDto dto) {
+        // 1. Récupération et vérification de l'utilisateur via le token
+        User user = userRepository.findByActivationToken(dto.getToken())
+                .orElseThrow(() -> new IllegalArgumentException("Token d'activation invalide ou introuvable."));
+
+        // 2. Vérification de l'expiration du token
+        if (user.getActivationTokenExpiry() != null && user.getActivationTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new IllegalStateException("Le lien d'activation a expiré. Veuillez demander un nouveau lien.");
+        }
+
+        // 3. Mise à jour du mot de passe (hachage)
+        user.setPasswordHash(passwordEncoder.encode(dto.getPassword()));
+
+        // 4. Changement du statut du compte et invalidation du token d'activation
+        user.setStatus(User.UserStatus.ACTIVE);
+        user.setActivationToken(null);
+        user.setActivationTokenExpiry(null);
+
+        // 5. Mise à jour du téléphone si renseigné
+        if (dto.getPhone() != null && !dto.getPhone().isBlank()) {
+            user.setPhone(dto.getPhone());
+        }
+
+        // 6. Sauvegarde de l'utilisateur mis à jour
+        User savedUser = userRepository.save(user);
+
+        // 🟢 Envoi de l'e-mail de confirmation d'activation
+    emailServiceImpl.sendActivationSuccessEmail(savedUser.getEmail(), savedUser.getFirstName());
+
+        // 7. Le journal d'audit enregistre l'action d'activation
+        auditService.logAction(
+                savedUser.getId(),
+                savedUser.getEmail(),
+                savedUser.getSchoolId(),
+                "USER_ACTIVATED",
+                "Le compte utilisateur a été activé avec succès.",
+                "USER"
+        );
+}
+
 }

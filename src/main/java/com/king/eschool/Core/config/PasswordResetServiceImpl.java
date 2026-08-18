@@ -112,13 +112,11 @@ public void resetPassword(
         );
     }
 
-    System.err.println("pwd avant " +newPassword);
     user.setPasswordHash(
         new BCryptPasswordEncoder()
             .encode(newPassword)
     );
 
-    System.out.println("apres" +user.getPasswordHash());
 
     // Token à usage unique
     user.setResetToken(null);

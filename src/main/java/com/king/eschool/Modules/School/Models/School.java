@@ -77,4 +77,13 @@ public class School {
         campuses.add(campus);
      //   campus.setSchool(this);
     }
+
+    // 🟢 Méthode helper pour ajouter une souscription
+    public void addSubscription(Subscription subscription) {
+        if (this.subscriptions == null) {
+            this.subscriptions = new ArrayList<>();
+        }
+        this.subscriptions.add(subscription);
+        subscription.setSchool(this); // Lie la souscription à cette école
+    }
 }
