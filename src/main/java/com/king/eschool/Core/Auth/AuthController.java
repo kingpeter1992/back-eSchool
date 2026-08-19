@@ -142,7 +142,7 @@ public ResponseEntity<ActivationContextDto> verifyToken(@RequestParam("token") S
 }
 
 
-@PostMapping("/api/v1/auth/complete-activation")
+@PostMapping("/complete-activation")
 public ResponseEntity<Void> completeActivation(@Valid @RequestBody CompleteActivationDto dto) {
     authService.completeUserActivation(dto);
     return ResponseEntity.ok().build();
