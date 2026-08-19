@@ -37,7 +37,7 @@ public class EmailServiceImpl {
             String activationToken) {
 
         String activationLink = appFrontUrl
-                + "/auth/activate?token="
+                + "/activate?token="
                 + activationToken;
 
         String subject = "Activation de votre compte - eSchool";

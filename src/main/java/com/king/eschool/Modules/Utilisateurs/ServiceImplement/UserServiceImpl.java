@@ -16,6 +16,7 @@ import com.king.eschool.Core.dtoResponse.UserAuthInfo;
 import com.king.eschool.Core.jwt.JwtService;
 import com.king.eschool.Modules.School.Models.School;
 import com.king.eschool.Modules.School.Repository.SchoolRepository;
+import com.king.eschool.Modules.Utilisateurs.Dto.reponse.UserResponseDto;
 import com.king.eschool.Modules.Utilisateurs.Dto.request.CompleteActivationDto;
 import com.king.eschool.Modules.Utilisateurs.Dto.request.CreateUserDto;
 import com.king.eschool.Modules.Utilisateurs.Models.Permission;
@@ -24,7 +25,6 @@ import com.king.eschool.Modules.Utilisateurs.Models.User;
 import com.king.eschool.Modules.Utilisateurs.Repository.RoleRepository;
 import com.king.eschool.Modules.Utilisateurs.Repository.UserRepository;
 
-import jakarta.validation.Valid;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -384,11 +384,83 @@ public class UserServiceImpl {
                                 "Suppression logique (soft-delete) du compte.", "ADMIN");
         }
 
-        public List<User> getAllUsers() {
-                return userRepository.findAll().stream()
-                                .filter(u -> u.getDeletedAt() == null)
-                                .collect(Collectors.toList());
+  public List<UserResponseDto> getAllUsers() {
+        return userRepository.findAll().stream()
+                .filter(u -> u.getDeletedAt() == null)
+                .map(this::mapToUserResponseDto)
+                .collect(Collectors.toList());
+    }
+
+    private UserResponseDto mapToUserResponseDto(User user) {
+        // 1. Extraction et consolidation de toutes les permissions uniques des rôles
+        Set<UserResponseDto.PermissionResponseDto> allPermissions = user.getRoles().stream()
+                .flatMap(role -> role.getPermissions().stream())
+                .map(perm -> UserResponseDto.PermissionResponseDto.builder()
+                        .id(perm.getId())
+                        .name(perm.getName())
+                        .slug(perm.getSlug())
+                        .category(perm.getCode()) // Utilisation de 'code' pour renseigner la catégorie
+                        .build())
+                .collect(Collectors.toSet());
+
+        // 2. Mappage des rôles avec leurs permissions
+        Set<UserResponseDto.RoleResponseDto> rolesDto = user.getRoles().stream()
+                .map(role -> UserResponseDto.RoleResponseDto.builder()
+                        .id(role.getId())
+                        .name(role.getName())
+                        .slug(role.getSlug())
+                        .system(role.isSystem())
+                        .permissions(role.getPermissions().stream()
+                                .map(perm -> UserResponseDto.PermissionResponseDto.builder()
+                                        .id(perm.getId())
+                                        .name(perm.getName())
+                                        .slug(perm.getSlug())
+                                        .category(perm.getCode())
+                                        .build())
+                                .collect(Collectors.toSet()))
+                        .build())
+                .collect(Collectors.toSet());
+
+        // 3. Récupération des informations de l'établissement (si lié)
+        UserResponseDto.SchoolInfo schoolInfo = null;
+        String schoolName = null;
+
+        if (user.getSchoolId() != null) {
+            Optional<School> optionalSchool = schoolRepository.findById(user.getSchoolId());
+            if (optionalSchool.isPresent()) {
+                School school = optionalSchool.get();
+                schoolName = school.getName();
+                schoolInfo = UserResponseDto.SchoolInfo.builder()
+                        .id(school.getId())
+                        .name(school.getName())
+                        .code(school.getCode())
+                        .email(school.getEmail())
+                        .phone(school.getPhone())
+                        .logoUrl(school.getLogoUrl())
+                        .currency(school.getCurrency())
+                        .timezone(school.getTimezone())
+                        .domain(school.getDomain())
+                        .status(school.getStatus() != null ? school.getStatus().name() : "ACTIVE")
+                        .build();
+            }
         }
+
+        // 4. Construction de l'objet final
+        return UserResponseDto.builder()
+                .id(user.getId())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .phone(user.getPhone())
+                .status(user.getStatus().name())
+                .schoolId(user.getSchoolId())
+                .campusId(user.getCampusId())
+                .schoolName(schoolName)
+                .school(schoolInfo)
+                .roles(rolesDto)
+                .permissions(allPermissions)
+                .build();
+    }
 
        /**
      * Recherche un utilisateur par son token d'activation
