@@ -297,50 +297,57 @@ public class EmailServiceImpl {
     // =========================================================
     // METHODE GENERIQUE RESEND
     // =========================================================
+private void sendHtmlEmail(
+        String toEmail,
+        String subject,
+        String htmlContent) {
 
-    private void sendHtmlEmail(
-            String toEmail,
-            String subject,
-            String htmlContent) {
+    validateEmail(toEmail);
 
-        validateEmail(toEmail);
+    try {
 
-        try {
+        log.info(
+                "📧 RESEND SEND | from={} | to={} | subject={}",
+                fromEmail,
+                toEmail,
+                subject
+        );
 
-            CreateEmailOptions request =
-                    CreateEmailOptions.builder()
-                            .from("eSchool <" + fromEmail + ">")
-                            .to(toEmail)
-                            .subject(subject)
-                            .html(htmlContent)
-                            .build();
+        CreateEmailOptions request =
+                CreateEmailOptions.builder()
+                        .from("eSchool <" + fromEmail + ">")
+                        .to(toEmail)
+                        .subject(subject)
+                        .html(htmlContent)
+                        .build();
 
-            CreateEmailResponse response =
-                    resend.emails().send(request);
+        CreateEmailResponse response =
+                resend.emails().send(request);
 
-            log.info(
-                    "Email envoyé avec succès | destinataire={} | sujet={} | resendId={}",
-                    toEmail,
-                    subject,
-                    response.getId()
-            );
+        log.info(
+                "✅ Email envoyé avec succès | destinataire={} | sujet={} | resendId={}",
+                toEmail,
+                subject,
+                response.getId()
+        );
 
-        } catch (Exception e) {
+    } catch (Exception e) {
 
-            log.error(
-                    "Échec envoi email Resend | destinataire={} | sujet={}",
-                    toEmail,
-                    subject,
-                    e
-            );
+        log.error(
+                "❌ ERREUR RESEND | destinataire={} | sujet={} | type={} | message={}",
+                toEmail,
+                subject,
+                e.getClass().getName(),
+                e.getMessage(),
+                e
+        );
 
-            throw new RuntimeException(
-                    "Erreur lors de l'envoi de l'e-mail.",
-                    e
-            );
-        }
+        throw new RuntimeException(
+                "Erreur Resend : " + e.getMessage(),
+                e
+        );
     }
-
+}
 
     // =========================================================
     // EMAIL ACTIVATION ABONNEMENT
