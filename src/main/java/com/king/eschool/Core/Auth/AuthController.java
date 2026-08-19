@@ -115,7 +115,7 @@ public ResponseEntity<?> activateAccount(
     }
 
 
-    @GetMapping("/api/v1/auth/verify-activation-token")
+    @GetMapping("/verify-activation-token")
 public ResponseEntity<ActivationContextDto> verifyToken(@RequestParam("token") String token) {
     User user = authService.findByActivationToken(token)
             .orElseThrow(() -> new IllegalArgumentException("Token invalide ou introuvable."));
