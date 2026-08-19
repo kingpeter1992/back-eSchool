@@ -10,13 +10,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.king.eschool.Modules.Utilisateurs.Models.User;
 import com.king.eschool.Modules.Utilisateurs.Repository.UserRepository;
-
+import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 
 
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class PasswordResetServiceImpl {
 
     private final UserRepository userRepository;
@@ -26,45 +27,44 @@ public class PasswordResetServiceImpl {
 
     public void sendResetLink(String email) {
 
+        log.info("Forgot password demandé pour : {}", email);
+
         Optional<User> optionalUser =
                 userRepository.findByEmail(email);
-
 
         /*
          * Pour éviter de révéler si un compte existe,
          * on ne lance pas d'erreur si l'utilisateur
          * n'existe pas.
          */
-
         if (optionalUser.isEmpty()) {
+            log.info("Aucun utilisateur trouvé pour : {}", email);
             return;
         }
 
+        User user = optionalUser.get();
 
-        User user =
-                optionalUser.get();
+        log.info("Utilisateur trouvé : {}", user.getEmail());
 
-
-        String token =
-                generateSecureToken();
-
+        String token = generateSecureToken();
 
         user.setResetToken(token);
 
         user.setResetTokenExpiry(
-                LocalDateTime.now()
-                        .plusMinutes(30)
+                LocalDateTime.now().plusMinutes(30)
         );
-
 
         userRepository.save(user);
 
+        log.info("Token de réinitialisation enregistré.");
 
         emailService.sendPasswordResetEmail(
                 user.getEmail(),
                 user.getFirstName(),
                 token
         );
+
+        log.info("Demande d'envoi email terminée.");
     }
 
 

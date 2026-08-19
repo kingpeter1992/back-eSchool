@@ -32,6 +32,40 @@ public class AuthController {
     private final UserServiceImpl authService;
     private final PasswordResetServiceImpl passwordResetService;
 
+
+        @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(
+            @RequestBody Map<String, String> request) {
+                
+        String email = request.get("email");
+        if (email == null
+                ||
+                email.isBlank()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(
+                            Map.of(
+                                    "message",
+                                    "L'adresse e-mail est obligatoire."));
+        }
+
+        passwordResetService
+                .sendResetLink(email);
+
+        /*
+         * Toujours retourner le même message.
+         * Cela évite qu'un attaquant puisse savoir
+         * si une adresse existe dans la base.
+         */
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "message",
+                        "Si cette adresse existe, "
+                                + "un lien de réinitialisation "
+                                + "a été envoyé."));
+    }
+
     @PostMapping("/register")
     @PreAuthorize("hasAuthority('user:create')")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserDto dto) {
@@ -63,37 +97,7 @@ public ResponseEntity<?> activateAccount(
         return ResponseEntity.ok(authService.login(request));
     }
 
-    @PostMapping("/forgot-password")
-    public ResponseEntity<Map<String, String>> forgotPassword(
-            @RequestBody Map<String, String> request) {
-        String email = request.get("email");
-        if (email == null
-                ||
-                email.isBlank()) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(
-                            Map.of(
-                                    "message",
-                                    "L'adresse e-mail est obligatoire."));
-        }
 
-        passwordResetService
-                .sendResetLink(email);
-
-        /*
-         * Toujours retourner le même message.
-         * Cela évite qu'un attaquant puisse savoir
-         * si une adresse existe dans la base.
-         */
-
-        return ResponseEntity.ok(
-                Map.of(
-                        "message",
-                        "Si cette adresse existe, "
-                                + "un lien de réinitialisation "
-                                + "a été envoyé."));
-    }
 
     @PostMapping("/reset-password")
     public ResponseEntity<Map<String, String>> resetPassword(

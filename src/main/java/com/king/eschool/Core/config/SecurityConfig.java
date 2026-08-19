@@ -52,6 +52,7 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Excepti
 
                     // Fichiers publics
                     .requestMatchers("/api/files/**").permitAll()
+                    .requestMatchers("/api/test/**").permitAll()
 
                     // Endpoints d'authentification (login, register, forgot-password, reset-password, etc.)
                     .requestMatchers("/api/auth/**").permitAll()
