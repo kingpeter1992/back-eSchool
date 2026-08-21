@@ -1,12 +1,13 @@
 package com.king.eschool.Core.config;
 
-import com.resend.Resend;
-import com.resend.services.emails.model.CreateEmailOptions;
-import com.resend.services.emails.model.CreateEmailResponse;
 
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -15,36 +16,31 @@ import org.springframework.stereotype.Service;
 public class EmailServiceImpl {
 
     // =========================================================
-    // RESEND
+    // SMTP / BREVO
     // =========================================================
 
-    private final Resend resend;
+    private final JavaMailSender mailSender;
 
-    @Value("${resend.from-email}")
+    @Value("${app.mail.from}")
     private String fromEmail;
+
+    @Value("${app.mail.from-name}")
+    private String fromName;
 
     @Value("${app.front-url}")
     private String appFrontUrl;
-
 
     // =========================================================
     // CONSTRUCTEUR
     // =========================================================
 
-    public EmailServiceImpl(
-            @Value("${resend.api-key}") String resendApiKey) {
+    public EmailServiceImpl(JavaMailSender mailSender) {
 
-        if (resendApiKey == null || resendApiKey.isBlank()) {
-            throw new IllegalStateException(
-                    "RESEND_API_KEY n'est pas configurée."
-            );
-        }
+        this.mailSender = mailSender;
 
-        this.resend = new Resend(resendApiKey);
-
-        log.info("EmailServiceImpl initialisé avec Resend.");
+        log.info(
+                "EmailServiceImpl initialisé avec SMTP Brevo.");
     }
-
 
     // =========================================================
     // EMAIL ACTIVATION COMPTE
@@ -55,13 +51,11 @@ public class EmailServiceImpl {
             String firstName,
             String activationToken) {
 
-        String activationLink =
-                appFrontUrl
-                        + "/activate?token="
-                        + activationToken;
+        String activationLink = appFrontUrl
+                + "/activate?token="
+                + activationToken;
 
-        String subject =
-                "Activation de votre compte - eSchool";
+        String subject = "Activation de votre compte - eSchool";
 
         String htmlContent = """
                 <!DOCTYPE html>
@@ -159,16 +153,13 @@ public class EmailServiceImpl {
                 """
                 .formatted(
                         safe(firstName),
-                        activationLink
-                );
+                        activationLink);
 
         sendHtmlEmail(
                 toEmail,
                 subject,
-                htmlContent
-        );
+                htmlContent);
     }
-
 
     // =========================================================
     // EMAIL RESET PASSWORD
@@ -179,13 +170,11 @@ public class EmailServiceImpl {
             String firstName,
             String resetToken) {
 
-        String resetLink =
-                appFrontUrl
-                        + "/reset-password?token="
-                        + resetToken;
+        String resetLink = appFrontUrl
+                + "/reset-password?token="
+                + resetToken;
 
-        String subject =
-                "Réinitialisation de votre mot de passe - eSchool";
+        String subject = "Réinitialisation de votre mot de passe - eSchool";
 
         String htmlContent = """
                 <!DOCTYPE html>
@@ -283,71 +272,89 @@ public class EmailServiceImpl {
                 """
                 .formatted(
                         safe(firstName),
-                        resetLink
-                );
+                        resetLink);
 
         sendHtmlEmail(
                 toEmail,
                 subject,
-                htmlContent
-        );
+                htmlContent);
     }
 
-
     // =========================================================
-    // METHODE GENERIQUE RESEND
+    // METHODE GENERIQUE SMTP BREVO
     // =========================================================
-private void sendHtmlEmail(
-        String toEmail,
-        String subject,
-        String htmlContent) {
 
-    validateEmail(toEmail);
+    private void sendHtmlEmail(
+            String toEmail,
+            String subject,
+            String htmlContent) {
 
-    try {
+        validateEmail(toEmail);
 
-        log.info(
-                "📧 RESEND SEND | from={} | to={} | subject={}",
-                fromEmail,
-                toEmail,
-                subject
-        );
+        try {
 
-        CreateEmailOptions request =
-                CreateEmailOptions.builder()
-                        .from("eSchool <" + fromEmail + ">")
-                        .to(toEmail)
-                        .subject(subject)
-                        .html(htmlContent)
-                        .build();
+            log.info(
+                    "📧 SMTP SEND | from={} | to={} | subject={}",
+                    fromEmail,
+                    toEmail,
+                    subject);
 
-        CreateEmailResponse response =
-                resend.emails().send(request);
+            MimeMessage message = mailSender.createMimeMessage();
 
-        log.info(
-                "✅ Email envoyé avec succès | destinataire={} | sujet={} | resendId={}",
-                toEmail,
-                subject,
-                response.getId()
-        );
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    message,
+                    true,
+                    "UTF-8");
 
-    } catch (Exception e) {
+            helper.setFrom(
+                    fromEmail,
+                    fromName);
 
-        log.error(
-                "❌ ERREUR RESEND | destinataire={} | sujet={} | type={} | message={}",
-                toEmail,
-                subject,
-                e.getClass().getName(),
-                e.getMessage(),
-                e
-        );
+            helper.setTo(toEmail);
 
-        throw new RuntimeException(
-                "Erreur Resend : " + e.getMessage(),
-                e
-        );
+            helper.setSubject(subject);
+
+            helper.setText(
+                    htmlContent,
+                    true);
+
+            mailSender.send(message);
+
+            log.info(
+                    "✅ Email envoyé avec succès | destinataire={} | sujet={}",
+                    toEmail,
+                    subject);
+
+        } catch (MessagingException e) {
+
+            log.error(
+                    "❌ ERREUR SMTP | destinataire={} | sujet={} | message={}",
+                    toEmail,
+                    subject,
+                    e.getMessage(),
+                    e);
+
+            throw new RuntimeException(
+                    "Erreur SMTP lors de l'envoi de l'email : "
+                            + e.getMessage(),
+                    e);
+
+        } catch (Exception e) {
+
+    log.error(
+        "❌ ERREUR SMTP COMPLÈTE | destinataire={} | sujet={}",
+        toEmail,
+        subject,
+        e
+    );
+
+    throw new RuntimeException(
+        "Erreur SMTP : " + e.getMessage(),
+        e
+    );
+
+        }
     }
-}
 
     // =========================================================
     // EMAIL ACTIVATION ABONNEMENT
@@ -363,11 +370,10 @@ private void sendHtmlEmail(
         log.info(
                 "Envoi email activation abonnement | destinataire={} | école={}",
                 toEmail,
-                schoolName
-        );
+                schoolName);
 
-        String subject =
-                "Activation de votre abonnement - " + schoolName;
+        String subject = "Activation de votre abonnement - "
+                + schoolName;
 
         String htmlContent = """
                 <!DOCTYPE html>
@@ -445,32 +451,27 @@ private void sendHtmlEmail(
                 """
                 .formatted(
                         safe(planName),
-                        safe(expiresAt)
-                );
+                        safe(expiresAt));
 
         try {
 
             sendHtmlEmail(
                     toEmail,
                     subject,
-                    htmlContent
-            );
+                    htmlContent);
 
             log.info(
                     "Email abonnement envoyé avec succès à {}",
-                    toEmail
-            );
+                    toEmail);
 
         } catch (Exception e) {
 
             log.error(
                     "Erreur email abonnement à {}",
                     toEmail,
-                    e
-            );
+                    e);
         }
     }
-
 
     // =========================================================
     // EMAIL PERSONNALISE
@@ -487,24 +488,20 @@ private void sendHtmlEmail(
             sendHtmlEmail(
                     toEmail,
                     subject,
-                    messageContent
-            );
+                    messageContent);
 
             log.info(
                     "Email personnalisé envoyé à {}",
-                    toEmail
-            );
+                    toEmail);
 
         } catch (Exception e) {
 
             log.error(
                     "Erreur email personnalisé à {}",
                     toEmail,
-                    e
-            );
+                    e);
         }
     }
-
 
     // =========================================================
     // EMAIL ACTIVATION SUCCESS
@@ -514,8 +511,7 @@ private void sendHtmlEmail(
             String toEmail,
             String firstName) {
 
-        String subject =
-                "Compte activé avec succès - eSchool";
+        String subject = "Compte activé avec succès - eSchool";
 
         String htmlContent = """
                 <!DOCTYPE html>
@@ -596,27 +592,23 @@ private void sendHtmlEmail(
                 """
                 .formatted(
                         safe(firstName),
-                        appFrontUrl
-                );
+                        appFrontUrl);
 
         try {
 
             sendHtmlEmail(
                     toEmail,
                     subject,
-                    htmlContent
-            );
+                    htmlContent);
 
         } catch (Exception e) {
 
             log.error(
                     "Échec email confirmation activation à {}",
                     toEmail,
-                    e
-            );
+                    e);
         }
     }
-
 
     // =========================================================
     // VALIDATION EMAIL
@@ -627,11 +619,9 @@ private void sendHtmlEmail(
         if (email == null || email.isBlank()) {
 
             throw new IllegalArgumentException(
-                    "L'adresse email est obligatoire."
-            );
+                    "L'adresse email est obligatoire.");
         }
     }
-
 
     // =========================================================
     // PROTECTION VALEURS NULL

@@ -13,9 +13,12 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -32,77 +35,68 @@ import com.king.eschool.Modules.Utilisateurs.Repository.UserRepository;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-        private final JwtAuthenticationFilter jwtFilter;
-        private final UserRepository userRepository;
-        private final Config config;
+    private final JwtAuthenticationFilter jwtFilter;
+    private final UserRepository userRepository;
+    private final Config config;
 
-@Bean
-public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-    return http
-            // 1. Désactiver CSRF (indispensable pour API REST Stateless)
-            .csrf(csrf -> csrf.disable())
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        return http
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(config.corsConfigurationSource()))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/files/**").permitAll()
+                        .requestMatchers("/api/test/**").permitAll()
+                        .requestMatchers("/api/auth/**").permitAll()
 
-            // 2. Configuration CORS intégrée
-            .cors(cors -> cors.configurationSource(config.corsConfigurationSource()))
+                        // 🟢 FIX 1: Exiger seulement l'authentification. 
+                        // La sécurité fine (SUPER_ADMIN vs ADMIN_ECOLE) sera gérée par @PreAuthorize sur les Controllers.
+                        .requestMatchers("/api/v1/**").authenticated()
 
-            // 3. Gestion des autorisations de requêtes
-            .authorizeHttpRequests(auth -> auth
-                    // Autoriser toutes les requêtes de pré-vérification CORS (Pre-flight OPTIONS)
-                    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .authenticationProvider(authenticationProvider())
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .build();
+    }
 
-                    // Fichiers publics
-                    .requestMatchers("/api/files/**").permitAll()
-                    .requestMatchers("/api/test/**").permitAll()
+    @Bean
+    public UserDetailsService userDetailsService() {
+        return email -> userRepository.findByEmail(email)
+                .map(user -> {
+                    // 🟢 FIX 2: Mapper les rôles/permissions de votre base vers les GrantedAuthority de Spring Security
+                    List<SimpleGrantedAuthority> authorities = user.getRoles().stream()
+                            .map(role -> new SimpleGrantedAuthority(role.getSlug())) // Ex: ROLE_ADMIN_ECOLE ou ROLE_SUPER_ADMIN
+                            .collect(Collectors.toList());
 
-                    // Endpoints d'authentification (login, register, forgot-password, reset-password, etc.)
-                    .requestMatchers("/api/auth/**").permitAll()
+                    return new org.springframework.security.core.userdetails.User(
+                            user.getEmail(),
+                            user.getPasswordHash(),
+                            authorities
+                    );
+                })
+                .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
+    }
 
-                    // Endpoints réservés à l'administrateur
-                    .requestMatchers("/api/v1/**").hasAuthority("ROLE_SUPER_ADMIN")
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService());
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
 
-                    // Tout le reste nécessite une authentification via JWT
-                    .anyRequest().authenticated()
-            )
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
 
-            // 4. Gestion de la session (Stateless car JWT)
-            .sessionManagement(session -> session
-                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
-
-            // 5. Provider & Filtre JWT
-            .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-            .build();
-}
-
-        @Bean
-        public UserDetailsService userDetailsService() {
-                        return email -> userRepository.findByEmail(email)
-                                                        .map(user -> new org.springframework.security.core.userdetails.User(
-                                                                                        user.getEmail(),
-                                                                                        user.getPasswordHash(),
-                                                                                        Collections.emptyList()))
-                                                        .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
-        }
-
-        @Bean
-        public AuthenticationProvider authenticationProvider() {
-                DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-
-                provider.setUserDetailsService(userDetailsService());
-                provider.setPasswordEncoder(passwordEncoder());
-
-                return provider;
-        }
-
-        @Bean
-        public AuthenticationManager authenticationManager(
-                        AuthenticationConfiguration config) throws Exception {
-                return config.getAuthenticationManager();
-        }
-
-        @Bean
-        public PasswordEncoder passwordEncoder() {
-                return new BCryptPasswordEncoder();
-        }
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 }

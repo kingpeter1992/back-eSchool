@@ -27,14 +27,16 @@ public class RoleController {
     }
 
 @GetMapping
-@PreAuthorize("hasAuthority('role:read.all') or hasRole('SUPER_ADMIN')") // 🟢 Autorise le Super Admin
+//@PreAuthorize("hasAuthority('role:read.all') or hasRole('SUPER_ADMIN')") // 🟢 Autorise le Super Admin
+@PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or (hasAuthority('ROLE_ADMIN_ECOLE'))")
 public ResponseEntity<List<RoleDto>> getRoles() {
     List<RoleDto> roles = roleService.getRoles();
     return ResponseEntity.ok(roles);
 }
 
 @PutMapping("/{id}/permissions")
-@PreAuthorize("hasAuthority('role:update') or hasRole('SUPER_ADMIN')") // 🟢 Autorise le Super Admin
+//@PreAuthorize("hasAuthority('role:update') or hasRole('SUPER_ADMIN')") // 🟢 Autorise le Super Admin
+@PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or (hasAuthority('ROLE_ADMIN_ECOLE'))")
 public ResponseEntity<Void> updateRolePermissions(
         @PathVariable UUID id,
         @RequestBody List<UUID> permissionIds) {

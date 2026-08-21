@@ -29,13 +29,15 @@ public class UserController {
 
 // 🟢 Autorise 'user:read.all' OU les utilisateurs possédant 'ROLE_SUPER_ADMIN'
     @GetMapping
-    @PreAuthorize("hasAuthority('user:read.all') or hasRole('SUPER_ADMIN')")
+    //@PreAuthorize("hasAuthority('user:read.all') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or (hasAuthority('ROLE_ADMIN_ECOLE'))")
     public ResponseEntity<List<UserResponseDto>> getAllUsers() {
         return ResponseEntity.ok(userService.getAllUsers());
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('user:delete') or hasRole('SUPER_ADMIN')")
+ //   @PreAuthorize("hasAuthority('user:delete') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or (hasAuthority('ROLE_ADMIN_ECOLE'))")
     public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
         userService.softDeleteUser(id);
         return ResponseEntity.noContent().build();
@@ -43,8 +45,9 @@ public class UserController {
 
     
 
-      @PostMapping()
-    @PreAuthorize("hasAuthority('user:create')")
+    @PostMapping()
+//   @PreAuthorize("hasAuthority('user:create')")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or (hasAuthority('ROLE_ADMIN_ECOLE'))")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserDto dto) {
         User createdUser = userService.createUser(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.fromEntity(createdUser));

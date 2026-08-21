@@ -5,16 +5,21 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.king.eschool.Audite.Auditable;
+import com.king.eschool.Modules.Cours.Repository.CourseRepository;
+import com.king.eschool.Modules.Parent.repository.ParentRepository;
 import com.king.eschool.Modules.School.Dto.SchoolStatus;
-import com.king.eschool.Modules.School.Dto.reponse.CampusResponse;
+import com.king.eschool.Modules.School.Dto.reponse.CampusResponseDto;
 import com.king.eschool.Modules.School.Dto.reponse.SchoolResponseDto;
-import com.king.eschool.Modules.School.Dto.request.CampusRequest;
+import com.king.eschool.Modules.School.Dto.request.CampusRequestDto;
 import com.king.eschool.Modules.School.Dto.request.SchoolRequestDto;
 import com.king.eschool.Modules.School.Interfaces.ISchoolService;
 import com.king.eschool.Modules.School.Models.Campus;
 import com.king.eschool.Modules.School.Models.School;
 import com.king.eschool.Modules.School.Repository.CampusRepository;
 import com.king.eschool.Modules.School.Repository.SchoolRepository;
+import com.king.eschool.Modules.SchoolClasse.repository.schoolClassRepository;
+import com.king.eschool.Modules.Student.repository.StudentRepository;
+import com.king.eschool.Modules.Teach.TeacherRepository;
 import com.king.eschool.shared.Storage.Services.FileStorageService;
 import com.king.eschool.shared.Storage.dtoResponse.FileDocumentResponse;
 
@@ -22,6 +27,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -33,6 +39,11 @@ public class SchoolServiceImpl implements ISchoolService {
     private final SchoolRepository schoolRepository;
     private final CampusRepository campusRepository;
     private final FileStorageService fileStorageService;
+    private  final StudentRepository studentRepository;
+    private final TeacherRepository teacherRepository;
+    private final ParentRepository parentRepository;
+    private final CourseRepository courseRepository;
+
 
     @Override
     @Transactional(readOnly = true)
@@ -167,29 +178,7 @@ public SchoolResponseDto updateSchool(UUID id, SchoolRequestDto requestDto) {
         return toDto(updated);
     }
 
-    @Override
-    @Transactional
-    @Auditable(action = "ADD_CAMPUS", targetEntity = "SCHOOL")
-    public CampusResponse addCampus(UUID schoolId, CampusRequest request) {
-        School school = schoolRepository.findByIdAndDeletedAtIsNull(schoolId)
-                .orElseThrow(() -> new RuntimeException("Établissement introuvable."));
-
-        Campus campus = Campus.builder()
-                .school(school)
-                .name(request.name())
-                .address(request.address())
-                .phone(request.phone())
-                .build();
-
-        Campus savedCampus = campusRepository.save(campus);
-
-        return new CampusResponse(
-                savedCampus.getId(),
-                savedCampus.getName(),
-                savedCampus.getAddress(),
-                savedCampus.getPhone());
-    }
-
+    
     @Override
     @Transactional
     @Auditable(action = "SOFT_DELETE", targetEntity = "SCHOOL")
@@ -218,28 +207,132 @@ public SchoolResponseDto updateSchool(UUID id, SchoolRequestDto requestDto) {
         return code;
     }
 
-    private SchoolResponseDto toDto(School school) {
-        List<CampusResponse> campusList = school.getCampuses()
-                .stream()
-                .map(c -> new CampusResponse(
-                        c.getId(),
-                        c.getName(),
-                        c.getAddress(),
-                        c.getPhone()))
-                .toList();
 
-        SchoolResponseDto dto = new SchoolResponseDto();
-        dto.setId(school.getId());
-        dto.setName(school.getName());
-        dto.setCode(school.getCode());
-        dto.setEmail(school.getEmail());
-        dto.setPhone(school.getPhone());
-        dto.setCurrency(school.getCurrency());
-        dto.setTimezone(school.getTimezone());
-        dto.setDomain(school.getDomain());
-        dto.setLogoUrl(school.getLogoUrl());
-        dto.setStatus(school.getStatus());
-        dto.setCampuses(campusList);
-        return dto;
+
+    @Transactional
+    public CampusResponseDto createCampus(CampusRequestDto dto) {
+        School school = schoolRepository.findById(dto.getSchoolId())
+                .orElseThrow(() -> new RuntimeException("École introuvable"));
+
+        // RG-CAM-002 : Unicité du code par école
+        if (campusRepository.existsBySchoolIdAndDeletedAtIsNull(dto.getSchoolId())) {
+            throw new IllegalArgumentException("Le code campus '" + dto.getCode() + "' existe déjà pour cette école.");
+        }
+
+        Campus campus = Campus.builder()
+                .school(school)
+                .name(dto.getName())
+               // .code(dto.getCode())
+                .address(dto.getAddress())
+                .city(dto.getCity())
+                .country(dto.getCountry())
+                .phone(dto.getPhone())
+                .status(Campus.CampusStatus.ACTIVE)
+                .build();
+
+        return mapToDto(campusRepository.save(campus));
     }
+
+    public List<CampusResponseDto> getCampusesBySchool(UUID schoolId) {
+        return campusRepository.findAllBySchoolIdAndNotDeleted(schoolId)
+                .stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+    public CampusResponseDto getCampusById(UUID id) {
+        Campus campus = campusRepository.findByIdAndNotDeleted(id)
+                .orElseThrow(() -> new RuntimeException("Campus introuvable"));
+        return mapToDto(campus);
+    }
+
+    @Transactional
+    public void deleteCampus(UUID id) {
+        Campus campus = campusRepository.findByIdAndNotDeleted(id)
+                .orElseThrow(() -> new RuntimeException("Campus introuvable"));
+
+        // RG-CAM-003 : Soft-delete via deleted_at
+        campus.setDeletedAt(LocalDateTime.now());
+        campus.setStatus(Campus.CampusStatus.INACTIVE);
+        campusRepository.save(campus);
+    }
+
+    private CampusResponseDto mapToDto(Campus campus) {
+        return CampusResponseDto.builder()
+                .id(campus.getId())
+                .schoolId(campus.getSchool().getId())
+                .schoolName(campus.getSchool().getName())
+                .name(campus.getName())
+//                .code(campus.getCode())
+                .address(campus.getAddress())
+                .city(campus.getCity())
+                .country(campus.getCountry())
+                .phone(campus.getPhone())
+                .status(campus.getStatus())
+                .createdAt(campus.getCreatedAt())
+                .build();
+    }
+
+
+private SchoolResponseDto toDto(School school) {
+    // 1. Mapping et filtrage des campus actifs (Soft-delete)
+    List<CampusResponseDto> campusList = school.getCampuses() != null
+            ? school.getCampuses().stream()
+                    .filter(c -> c.getDeletedAt() == null)
+                    .map(c -> CampusResponseDto.builder()
+                            .id(c.getId())
+                            .schoolId(school.getId())
+                            .schoolName(school.getName())
+                            .name(c.getName())
+                            .address(c.getAddress())
+                            .city(c.getCity())
+                            .country(c.getCountry())
+                            .phone(c.getPhone())
+                            .status(c.getStatus())
+                            .createdAt(c.getCreatedAt())
+                            .build())
+                    .collect(Collectors.toList())
+            : Collections.emptyList();
+
+    SchoolResponseDto dto = new SchoolResponseDto();
+    
+    // 2. Informations de base de l'école
+    dto.setId(school.getId());
+    dto.setName(school.getName());
+    dto.setCode(school.getCode());
+    dto.setEmail(school.getEmail());
+    dto.setPhone(school.getPhone());
+    dto.setLogoUrl(school.getLogoUrl());
+    dto.setCurrency(school.getCurrency());
+    dto.setTimezone(school.getTimezone());
+    dto.setDomain(school.getDomain());
+    dto.setStatus(school.getStatus());
+    dto.setCampuses(campusList);
+    dto.setCreatedAt(school.getCreatedAt());
+
+    // 3. Calcul dynamique des statistiques
+    dto.setTotalCampuses((long) campusList.size());
+    
+    // Remplacer par vos appels de repositories/services respectifs (ou 0L par défaut)
+
+//    dto.setTotalStudents(studentRepository.countBySchoolId(school.getId()));
+//    dto.setTotalTeachers(teacherRepository.countBySchoolId(school.getId()));
+//    dto.setTotalClasses(schoolClassRepository.countBySchoolId(school.getId()));
+//    dto.setTotalCourses(courseRepository.countBySchoolId(school.getId()));
+ //   dto.setTotalParents(parentRepository.countBySchoolId(school.getId()));
+    dto.setTotalStudents(0L);
+    dto.setTotalTeachers(0L);
+    dto.setTotalClasses(0L);
+    dto.setTotalCourses(0L);
+    dto.setTotalParents(0L);
+
+    return dto;
+}
+
+@Override
+public CampusResponseDto addCampus(UUID schoolId, CampusRequestDto request) {
+    // TODO Auto-generated method stub
+    throw new UnsupportedOperationException("Unimplemented method 'addCampus'");
+}
+
 }

@@ -25,7 +25,7 @@ public class SchoolResponseDto {
     private String timezone;
     private String domain;
     private SchoolStatus status; // Doit correspondre au type de l'entité
-    List<CampusResponse> campuses;
+    List<CampusResponseDto> campuses;
     LocalDateTime createdAt;
 
 

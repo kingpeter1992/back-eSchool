@@ -29,13 +29,13 @@ public class SchoolController {
         return ResponseEntity.ok(schoolService.getAllSchools());
     }
 
-    @GetMapping("/{id}")
-    //@PreAuthorize("hasAuthority('school:read')")
-    @PreAuthorize("hasAnyAuthority('school:read', 'school:read.all') or hasRole('SUPER_ADMIN')")
+@GetMapping("/{id}")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or " +
+                  "(hasAuthority('ROLE_ADMIN_ECOLE') and hasAnyAuthority('school:read.all', 'school:read', 'SCHOOL_READ_ALL'))")
     public ResponseEntity<SchoolResponseDto> getSchoolById(@PathVariable UUID id) {
         return ResponseEntity.ok(schoolService.getSchoolById(id));
     }
-
+    
     @PostMapping
   @PreAuthorize("hasAuthority('school:create')")
     public ResponseEntity<SchoolResponseDto> createSchool(

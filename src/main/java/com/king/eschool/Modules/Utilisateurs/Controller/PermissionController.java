@@ -21,7 +21,8 @@ public class PermissionController {
 
 
     @GetMapping
-    @PreAuthorize("hasAuthority('permission:read.all') or hasRole('SUPER_ADMIN')")
+    //@PreAuthorize("hasAuthority('permission:read.all') or hasRole('SUPER_ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or (hasAuthority('ROLE_ADMIN_ECOLE'))")
     public ResponseEntity<List<PermissionDto>> getAllPermissions() {
         return ResponseEntity.ok(permissionService.getAllPermissions());
     }
