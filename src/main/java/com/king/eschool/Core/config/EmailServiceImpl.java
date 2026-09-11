@@ -633,4 +633,31 @@ public class EmailServiceImpl {
                 ? ""
                 : value;
     }
+
+
+
+    @Async
+public void sendEnrollmentConfirmationEmail(String toEmail, String candidateName, String registrationNo) {
+    String subject = "Confirmation de votre demande d'inscription - eSchool";
+    String htmlContent = """
+        <!DOCTYPE html>
+        <html lang="fr">
+        <body style="font-family:Arial,sans-serif; background:#f8fafc; padding:20px;">
+            <div style="max-width:600px; margin:auto; background:white; padding:30px; border-radius:12px; border:1px solid #e2e8f0;">
+                <h2 style="color:#2563eb;">Demande d'inscription reçue ! 🎓</h2>
+                <p>Bonjour <strong>%s</strong>,</p>
+                <p>Votre dossier d'inscription a bien été enregistré avec succès.</p>
+                <div style="background:#f1f5f9; padding:15px; border-radius:8px; margin:20px 0; text-align:center;">
+                    <span style="font-size:14px; color:#64748b;">Votre numéro de dossier :</span><br/>
+                    <strong style="font-size:22px; color:#0f172a; letter-spacing:2px;">%s</strong>
+                </div>
+                <p style="color:#475569; font-size:14px;">Conservez ce numéro précieusement pour suivre l'état de votre demande.</p>
+                <p style="color:#94a3b8; font-size:12px; margin-top:30px;">eSchool — Administration</p>
+            </div>
+        </body>
+        </html>
+        """.formatted(safe(candidateName), safe(registrationNo));
+
+    sendHtmlEmail(toEmail, subject, htmlContent);
+}
 }

@@ -8,6 +8,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Auditable {
-    String action();
-    String targetEntity() default "";
+    String action();        // Ex: CREATE, UPDATE, DELETE, LOGIN
+    String targetEntity();  // Ex: USER, SCHOOL, ACADEMIC_CYCLE
 }

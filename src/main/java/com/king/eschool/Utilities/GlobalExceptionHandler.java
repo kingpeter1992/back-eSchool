@@ -2,7 +2,10 @@ package com.king.eschool.Utilities;
 
 
 
-   import jakarta.servlet.http.HttpServletRequest;
+   import jakarta.persistence.EntityNotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
+
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -15,7 +18,31 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+// 1. Si l'ID du campus n'existe pas dans la base (EntityNotFoundException)
+@ExceptionHandler(EntityNotFoundException.class)
+public ResponseEntity<ApiErrorResponse> handleEntityNotFound(EntityNotFoundException ex, HttpServletRequest request) {
+    ApiErrorResponse response = ApiErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.NOT_FOUND.value())
+            .error("Not Found")
+            .message(ex.getMessage())
+            .path(request.getRequestURI())
+            .build();
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+}
 
+// 2. Si le code du bâtiment existe déjà / contrainte d'unicité (DataIntegrityViolationException)
+@ExceptionHandler(DataIntegrityViolationException.class)
+public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex, HttpServletRequest request) {
+    ApiErrorResponse response = ApiErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.CONFLICT.value())
+            .error("Conflict")
+            .message("Violation d'une contrainte d'unicité ou de clé étrangère dans la base de données.")
+            .path(request.getRequestURI())
+            .build();
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+}
     // 1. Gestion des erreurs métier générales (RuntimeException / Entité introuvable)
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiErrorResponse> handleRuntimeException(RuntimeException ex, HttpServletRequest request) {

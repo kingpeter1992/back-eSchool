@@ -4,7 +4,10 @@ package com.king.eschool.Modules.Academique.Models;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
+
+import com.king.eschool.Modules.Academique.Enum.AcademicYearStatus;
 
 @Entity
 @Table(name = "academic_years", uniqueConstraints = {
@@ -36,12 +39,15 @@ public class AcademicYear {
     @Builder.Default
     private boolean isCurrent = false;
 
-    @Enumerated(EnumType.STRING)
+ @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @Builder.Default
-    private YearStatus status = YearStatus.PENDING;
+    private AcademicYearStatus status;
 
-    public enum YearStatus {
-        PENDING, ACTIVE, CLOSED
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
     }
 }

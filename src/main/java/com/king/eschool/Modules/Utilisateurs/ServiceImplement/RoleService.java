@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.ResourceAccessException;
 
+import com.king.eschool.Modules.Utilisateurs.Dto.reponse.RoleRespons;
+import com.king.eschool.Modules.Utilisateurs.Dto.reponse.UserResponseDto.RoleResponseDto;
 import com.king.eschool.Modules.Utilisateurs.Dto.request.RoleDto;
 import com.king.eschool.Modules.Utilisateurs.Models.Permission;
 import com.king.eschool.Modules.Utilisateurs.Models.Role;
@@ -66,5 +68,12 @@ public class RoleService {
 
         role.setPermissions(newPermissions);
         roleRepository.save(role);
+    }
+
+@Transactional(readOnly = true)
+    public List<RoleRespons> getAllRoles() {
+        return roleRepository.findAll().stream()
+                .map(RoleRespons::fromEntity)
+                .toList();
     }
 }

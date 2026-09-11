@@ -1,5 +1,8 @@
 package com.king.eschool.Audite.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -12,4 +15,5 @@ import java.util.UUID;
 public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     List<AuditLog> findBySchoolId(UUID schoolId);
     List<AuditLog> findByUserId(UUID userId);
+    Page<AuditLog> findAll(Specification<AuditLog> spec, Pageable pageable);
 }

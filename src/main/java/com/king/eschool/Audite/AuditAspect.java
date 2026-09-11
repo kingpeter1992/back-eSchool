@@ -1,80 +1,84 @@
 package com.king.eschool.Audite;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
-import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import com.king.eschool.Audite.ServiceImpl.AuditService;
-import com.king.eschool.Modules.Utilisateurs.Models.User;
-import com.king.eschool.Modules.Utilisateurs.Repository.UserRepository;
-
+import com.king.eschool.Audite.models.AuditEvent;
+import com.king.eschool.Core.config.UserPrincipal;
 import java.lang.reflect.Method;
-import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Aspect
 @Component
+@RequiredArgsConstructor 
 public class AuditAspect {
 
     private final AuditService auditService;
-    private final UserRepository userRepository;
 
-    public AuditAspect(AuditService auditService, UserRepository userRepository) {
-        this.auditService = auditService;
-        this.userRepository = userRepository;
+    @AfterReturning(pointcut = "@annotation(auditable)", returning = "result")
+    public void logAuditSuccess(JoinPoint joinPoint, Auditable auditable, Object result) {
+        AuditEvent event = buildBaseEvent(auditable);
+        
+        // Tentative d'extraction de l'ID cible à partir du DTO ou entité retournée
+        if (result != null) {
+            event.setTargetId(extractEntityId(result));
+            event.setNewValue(result);
+        }
+
+        auditService.logEvent(event);
     }
 
-    @AfterReturning("@annotation(auditable)")
-    public void logAudit(JoinPoint joinPoint, Auditable auditable) {
-        // 1. Récupérer l'utilisateur connecté
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String currentUserEmail = "ANONYMOUS";
-        UUID currentUserId = null;
-        UUID currentSchoolId = null;
+    private AuditEvent buildBaseEvent(Auditable auditable) {
+        AuditEvent event = AuditEvent.builder()
+                .actionType(auditable.action())
+                .targetEntity(auditable.targetEntity())
+                .build();
 
-        if (authentication != null && authentication.isAuthenticated() && !authentication.getPrincipal().equals("anonymousUser")) {
-            currentUserEmail = authentication.getName();
-            User user = userRepository.findByEmail(currentUserEmail).orElse(null);
-            if (user != null) {
-                currentUserId = user.getId();
-                currentSchoolId = user.getSchoolId();
+        // 1. Context Utilisateur (Spring Security)
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !auth.getPrincipal().equals("anonymousUser")) {
+            event.setUsername(auth.getName());
+            event.setUserRole(auth.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.joining(",")));
+
+            if (auth.getPrincipal() instanceof UserPrincipal principal) {
+                event.setUserId(principal.getId());
+                event.setSchoolId(principal.getSchoolId());
+                event.setCampusId(principal.getCampusId());
             }
         }
 
-        // 2. Récupérer l'adresse IP du client
-        String clientIp = "UNKNOWN";
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes != null) {
-            HttpServletRequest request = attributes.getRequest();
-            clientIp = request.getHeader("X-Forwarded-For");
-            if (clientIp == null || clientIp.isEmpty()) {
-                clientIp = request.getRemoteAddr();
-            }
+        // 2. Context HTTP (IP & Device)
+        ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attrs != null) {
+            HttpServletRequest request = attrs.getRequest();
+            String ip = request.getHeader("X-Forwarded-For");
+            event.setIpAddress((ip == null || ip.isEmpty()) ? request.getRemoteAddr() : ip.split(",")[0]);
+            event.setDeviceInfo(request.getHeader("User-Agent"));
         }
 
-        // 3. Extraire les détails de la méthode exécutée
-        MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-        Method method = signature.getMethod();
-        String details = "Exécution de la méthode : " + method.getDeclaringClass().getSimpleName() + "." + method.getName();
+        return event;
+    }
 
-        if (!auditable.targetEntity().isEmpty()) {
-            details += " | Cible : " + auditable.targetEntity();
+    private String extractEntityId(Object obj) {
+        try {
+            Method getIdMethod = obj.getClass().getMethod("getId");
+            Object id = getIdMethod.invoke(obj);
+            return id != null ? id.toString() : null;
+        } catch (Exception e) {
+            return null;
         }
-
-        // 4. Sauvegarde persistante via le service d'audit
-        auditService.logAction(
-                currentUserId,
-                currentUserEmail,
-                currentSchoolId,
-                auditable.action(),
-                details,
-                clientIp
-        );
     }
 }

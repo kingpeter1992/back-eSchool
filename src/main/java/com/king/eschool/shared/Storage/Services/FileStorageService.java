@@ -41,7 +41,7 @@ public class FileStorageService {
     public FileDocumentResponse uploadFile(
             MultipartFile file,
             String module,
-            Long referenceId
+            UUID referenceId
     ) {
 
         try {
@@ -123,7 +123,7 @@ public class FileStorageService {
                                     .storagePath(storagePath)
                                     .publicUrl(publicUrl)
                                     .module(module)
-                                    .referenceId(referenceId)
+                                    .id(referenceId)
                                     .build()
                     );
 

@@ -8,7 +8,6 @@ import com.king.eschool.Modules.School.Dto.request.SubscriptionItemDto;
 import com.king.eschool.Modules.School.Dto.request.SubscriptionRequestDto;
 import com.king.eschool.Modules.School.Models.School;
 import com.king.eschool.Modules.School.Models.Subscription;
-import com.king.eschool.Modules.School.Models.Subscription.SubscriptionStatus;
 import com.king.eschool.Modules.School.Repository.SchoolRepository;
 import com.king.eschool.Modules.School.Repository.SubscriptionRepository;
 
@@ -20,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;

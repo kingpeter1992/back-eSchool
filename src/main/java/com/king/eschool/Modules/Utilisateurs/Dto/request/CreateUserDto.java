@@ -1,6 +1,5 @@
 package com.king.eschool.Modules.Utilisateurs.Dto.request;
 
-
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -8,18 +7,24 @@ import lombok.Data;
 import java.util.Set;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 @Data
 public class CreateUserDto {
-   
+
     @NotBlank
     private String firstName;
     @NotBlank
     private String lastName;
-    @Email @NotBlank
+    @Email
+    @NotBlank
     private String email;
     private String phone;
     private UUID schoolId;
     private UUID campusId;
-    @NotEmpty(message = "Au moins un rôle est obligatoire")
-    private Set<UUID> roleIds; // 🟢 Utilisation de roleIds (UUID)
+   // @NotEmpty(message = "Au moins un rôle est obligatoire")
+    private Set<String> roleSlugs; // 👈 Remplacé roleIds par roleSlugs
+   @NotEmpty(message = "Au moins un rôle est obligatoire")
+    @JsonProperty("roleIds") // Permet de mapper la clé "roleIds" du JSON reçu
+    private Set<UUID> roleIds;
 }

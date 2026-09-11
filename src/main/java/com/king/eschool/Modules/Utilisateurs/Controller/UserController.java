@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.king.eschool.Core.dtoResponse.UserResponse;
 import com.king.eschool.Modules.Utilisateurs.Dto.reponse.UserResponseDto;
+import com.king.eschool.Modules.Utilisateurs.Dto.request.AssignAccessDto;
 import com.king.eschool.Modules.Utilisateurs.Dto.request.CreateUserDto;
 import com.king.eschool.Modules.Utilisateurs.Models.User;
 import com.king.eschool.Modules.Utilisateurs.ServiceImplement.UserServiceImpl;
@@ -27,6 +28,17 @@ public class UserController {
     // 🟢 Bonne pratique : Injectez l'interface (UserService) plutôt que l'implémentation (UserServiceImpl)
     private final UserServiceImpl userService; 
 
+
+        @PostMapping()
+//   @PreAuthorize("hasAuthority('user:create')")
+    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or (hasAuthority('ROLE_ADMIN_ECOLE'))")
+    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserDto dto) {
+        User createdUser = userService.createUser(dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.fromEntity(createdUser));
+    }
+
+
+    
 // 🟢 Autorise 'user:read.all' OU les utilisateurs possédant 'ROLE_SUPER_ADMIN'
     @GetMapping
     //@PreAuthorize("hasAuthority('user:read.all') or hasRole('SUPER_ADMIN')")
@@ -45,12 +57,18 @@ public class UserController {
 
     
 
-    @PostMapping()
-//   @PreAuthorize("hasAuthority('user:create')")
-    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or (hasAuthority('ROLE_ADMIN_ECOLE'))")
-    public ResponseEntity<UserResponse> createUser(@Valid @RequestBody CreateUserDto dto) {
-        User createdUser = userService.createUser(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.fromEntity(createdUser));
-    }
 
+
+    @PutMapping("/{id}/access")
+@PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or hasAuthority('ROLE_ADMIN_ECOLE')")
+public ResponseEntity<UserResponse> updateUserAccess(
+        @PathVariable UUID id,
+        @RequestBody AssignAccessDto dto) {
+    
+    // Sécurité : s'assurer que le path Variable correspond au DTO
+    dto.setUserId(id);
+    
+    User updatedUser = userService.updateUserAccess(id, dto);
+    return ResponseEntity.ok(UserResponse.fromEntity(updatedUser));
+}
 }

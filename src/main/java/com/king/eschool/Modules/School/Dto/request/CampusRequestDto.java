@@ -30,4 +30,7 @@ public class CampusRequestDto {
 
     private String country;
     private String phone;
+
+        private String province;
+
 }

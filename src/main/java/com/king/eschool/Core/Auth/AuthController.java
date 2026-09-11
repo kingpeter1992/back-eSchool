@@ -22,6 +22,8 @@ import com.king.eschool.Modules.Utilisateurs.Dto.request.CreateUserDto;
 import com.king.eschool.Modules.Utilisateurs.Models.Role;
 import com.king.eschool.Modules.Utilisateurs.Models.User;
 import com.king.eschool.Modules.Utilisateurs.ServiceImplement.UserServiceImpl;
+
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
@@ -92,11 +94,13 @@ public ResponseEntity<?> activateAccount(
     );
 }
 
-    @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
-        return ResponseEntity.ok(authService.login(request));
-    }
-
+@PostMapping("/login")
+public ResponseEntity<AuthResponse> login(
+        @RequestBody LoginRequest request, 
+        HttpServletRequest httpRequest) { // 👈 Injecter HttpServletRequest ici
+    
+    return ResponseEntity.ok(authService.login(request, httpRequest)); // 👈 Passer httpRequest en 2e argument
+}
 
 
     @PostMapping("/reset-password")

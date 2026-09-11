@@ -14,20 +14,23 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 public class UserResponseDto {
-    private UUID id;
+private UUID id;
     private String email;
     private String firstName;
     private String lastName;
     private String phone;
-    private String status; // PENDING_ACTIVATION, ACTIVE, SUSPENDED, LOCKED
+    private String status;
     private UUID schoolId;
     private UUID campusId;
     private String schoolName;
     private SchoolInfo school;
+    private CampusInfo campus; // 🟢 Ajout de l'objet Campus
     private Set<RoleResponseDto> roles;
     private Set<PermissionResponseDto> permissions;
 
-    @Data
+
+
+@Data
     @Builder
     @AllArgsConstructor
     @NoArgsConstructor
@@ -42,6 +45,22 @@ public class UserResponseDto {
         private String timezone;
         private String domain;
         private String status;
+    }
+
+    // 🟢 Nouveau DTO pour le Campus
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class CampusInfo {
+        private UUID id;
+        private String name;
+        private String code;
+        private String address;
+        private String city;
+        private String phone;
+        private String email;
+        private boolean mainCampus;
     }
 
     @Data

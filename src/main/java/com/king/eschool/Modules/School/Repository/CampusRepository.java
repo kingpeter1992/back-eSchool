@@ -23,5 +23,7 @@ public interface CampusRepository extends JpaRepository<Campus, UUID> {
 
     // Vérifie l'unicité du code au sein de la même école (RG-CAM-002)
     boolean existsBySchoolIdAndDeletedAtIsNull(UUID schoolId);
+// 🟢 Utiliser Boolean (Objet) au lieu de boolean (Primitif)
+    Boolean existsByCode(String code);
 
 }

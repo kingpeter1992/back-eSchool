@@ -30,11 +30,11 @@ public class SchoolController {
     }
 
 @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or " +
-                  "(hasAuthority('ROLE_ADMIN_ECOLE') and hasAnyAuthority('school:read.all', 'school:read', 'SCHOOL_READ_ALL'))")
-    public ResponseEntity<SchoolResponseDto> getSchoolById(@PathVariable UUID id) {
-        return ResponseEntity.ok(schoolService.getSchoolById(id));
-    }
+@PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN_ECOLE', 'ADMIN') or " +
+              "hasAnyAuthority('school:read.all', 'school:read', 'SCHOOL_READ_ALL')")
+public ResponseEntity<SchoolResponseDto> getSchoolById(@PathVariable UUID id) {
+    return ResponseEntity.ok(schoolService.getSchoolById(id));
+}
     
     @PostMapping
   @PreAuthorize("hasAuthority('school:create')")

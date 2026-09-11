@@ -20,6 +20,7 @@ public class CampusResponseDto {
     private String address;
     private String city;
     private String country;
+    private String province;
     private String phone;
     private CampusStatus status;
     private LocalDateTime createdAt;

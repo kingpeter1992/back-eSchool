@@ -7,6 +7,7 @@ import com.king.eschool.shared.Storage.Services.FileStorageService;
 import com.king.eschool.shared.Storage.dtoResponse.FileDocumentResponse;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/files")
@@ -22,7 +23,7 @@ public class FileStorageController {
     public FileDocumentResponse upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam("module") String module,
-            @RequestParam("referenceId") Long referenceId
+            @RequestParam("referenceId") UUID referenceId
     ) {
         return service.uploadFile(file, module, referenceId);
     }
