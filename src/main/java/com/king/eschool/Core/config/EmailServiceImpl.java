@@ -660,4 +660,68 @@ public void sendEnrollmentConfirmationEmail(String toEmail, String candidateName
 
     sendHtmlEmail(toEmail, subject, htmlContent);
 }
+
+@Async
+public void sendEnrollmentConfirmationEmailWithLink(
+        String toEmail, 
+        String candidateName, 
+        String registrationNo, 
+        String trackingUrl
+) {
+    String subject = "Suivi de votre demande d'inscription - eSchool";
+    String htmlContent = """
+        <!DOCTYPE html>
+        <html lang="fr">
+        <body style="font-family: Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px;">
+            <div style="max-width: 600px; margin: auto; background: #ffffff; padding: 30px; border-radius: 12px; border: 1px solid #e2e8f0; color: #334155;">
+                
+                <!-- ENTÊTE -->
+                <h2 style="color: #2563eb; margin-top: 0;">Demande d'inscription reçue ! 🎓</h2>
+                <p>Bonjour <strong>%s</strong>,</p>
+                <p>Votre dossier d'inscription a été enregistré avec succès.</p>
+                
+                <!-- NUMÉRO DE DOSSIER -->
+                <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
+                    <span style="font-size: 14px; color: #64748b;">Votre numéro de dossier :</span><br/>
+                    <strong style="font-size: 22px; color: #0f172a; letter-spacing: 2px;">%s</strong>
+                </div>
+
+                <!-- BOUTON D'ACTION (SUIVI EN UN CLIC) -->
+                <p style="text-align: center; margin: 30px 0;">
+                    <a href="%s" target="_blank" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; font-weight: bold; border-radius: 6px; display: inline-block;">
+                        Accéder à mon dossier en ligne
+                    </a>
+                </p>
+
+                <!-- AVERTISSEMENT DE VALIDITÉ DU LIEN -->
+                <div style="background-color: #fffbe3; border-left: 4px solid #f59e0b; padding: 12px; border-radius: 4px; margin: 20px 0;">
+                    <p style="margin: 0; font-size: 13px; color: #b45309;">
+                        ⚡ <strong>Information importante :</strong> Ce lien d'accès direct est personnel et restera <strong>valide pendant 3 mois</strong>. Vous n'avez pas besoin de mot de passe pour suivre l'avancement de votre candidature.
+                    </p>
+                </div>
+
+                <!-- LIEN DE SECOURS (EN TEXTE BRUT) -->
+                <p style="font-size: 12px; color: #64748b;">
+                    Si le bouton ci-dessus ne fonctionne pas, copiez et collez ce lien dans votre navigateur :<br/>
+                    <a href="%s" style="color: #2563eb; word-break: break-all;">%s</a>
+                </p>
+
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin-top: 30px;" />
+
+                <p style="color: #94a3b8; font-size: 12px; text-align: center; margin-bottom: 0;">
+                    eSchool — Service des admissions
+                </p>
+            </div>
+        </body>
+        </html>
+        """.formatted(
+            safe(candidateName), 
+            safe(registrationNo), 
+            trackingUrl, 
+            trackingUrl, 
+            trackingUrl
+        );
+
+    sendHtmlEmail(toEmail, subject, htmlContent);
+}
 }

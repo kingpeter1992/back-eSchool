@@ -311,18 +311,18 @@ public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest) 
             .targetEntity("AUTHENTICATION")
             .build());
 
-    // 🟢 LOGS CONSOLE EN CAS DE SUCCÈS
-    System.out.println("==================================================");
-    System.out.println("🟢 CONNEXION RÉUSSIE !");
-    System.out.println("--------------------------------------------------");
-    System.out.println("👤 Utilisateur  : " + user.getFirstName() + " " + user.getLastName() + " (" + user.getEmail() + ")");
-    System.out.println("🔑 Rôle Principal: " + primaryRole);
-    System.out.println("🎭 Rôles        : " + roleSlugs);
-    System.out.println("🏫 École        : " + (school != null ? school.getName() + " (ID: " + school.getId() + ")" : "Aucune"));
-    System.out.println("🏢 Campus       : " + (campus != null ? campus.getName() + " (ID: " + campus.getId() + ")" : "Aucun"));
-    System.out.println("🔐 Permissions   : " + permissionSlugs);
-    System.out.println("🎟️ Access Token : " + accessToken.substring(0, Math.min(accessToken.length(), 20)) + "...");
-    System.out.println("==================================================");
+//     // 🟢 LOGS CONSOLE EN CAS DE SUCCÈS
+//     System.out.println("==================================================");
+//     System.out.println("🟢 CONNEXION RÉUSSIE !");
+//     System.out.println("--------------------------------------------------");
+//     System.out.println("👤 Utilisateur  : " + user.getFirstName() + " " + user.getLastName() + " (" + user.getEmail() + ")");
+//     System.out.println("🔑 Rôle Principal: " + primaryRole);
+//     System.out.println("🎭 Rôles        : " + roleSlugs);
+//     System.out.println("🏫 École        : " + (school != null ? school.getName() + " (ID: " + school.getId() + ")" : "Aucune"));
+//     System.out.println("🏢 Campus       : " + (campus != null ? campus.getName() + " (ID: " + campus.getId() + ")" : "Aucun"));
+//     System.out.println("🔐 Permissions   : " + permissionSlugs);
+//     System.out.println("🎟️ Access Token : " + accessToken.substring(0, Math.min(accessToken.length(), 20)) + "...");
+//     System.out.println("==================================================");
 
     // 6. Réponse HTTP
     return AuthResponse.builder()

@@ -49,6 +49,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/files/**").permitAll()
                         .requestMatchers("/api/test/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("api/v1/enrollments/public").permitAll()
 
                         // 🟢 FIX 1: Exiger seulement l'authentification. 
                         // La sécurité fine (SUPER_ADMIN vs ADMIN_ECOLE) sera gérée par @PreAuthorize sur les Controllers.

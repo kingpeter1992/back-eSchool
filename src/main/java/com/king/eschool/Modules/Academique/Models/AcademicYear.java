@@ -39,7 +39,7 @@ public class AcademicYear {
     @Builder.Default
     private boolean isCurrent = false;
 
- @Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AcademicYearStatus status;
 

@@ -5,13 +5,13 @@ import java.util.UUID;
 import com.king.eschool.Modules.Utilisateurs.Models.Role;
 
 // DTO
-public record RoleRespons(
+public record RoleResponse(
     UUID id,
     String name,
     String slug,
     String description
 ) {
-    public static RoleRespons fromEntity(Role role) {
-        return new RoleRespons(role.getId(), role.getName(), role.getSlug(), role.getDescription());
+    public static RoleResponse fromEntity(Role role) {
+        return new RoleResponse(role.getId(), role.getName(), role.getSlug(), role.getDescription());
     }
 }

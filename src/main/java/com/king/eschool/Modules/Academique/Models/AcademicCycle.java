@@ -1,7 +1,9 @@
 package com.king.eschool.Modules.Academique.Models;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -32,9 +34,18 @@ public class AcademicCycle {
     @Column(nullable = false)
     private String name; // ex: Maternelle, Primaire, Secondaire
 
-    @OneToMany(mappedBy = "cycle", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<AcademicSection> sections = new ArrayList<>();
+    // @OneToMany(mappedBy = "cycle", cascade = CascadeType.ALL, orphanRemoval = true)
+    // private List<AcademicSection> sections = new ArrayList<>();
 
-    @OneToMany(mappedBy = "cycle", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<AcademicLevel> levels = new ArrayList<>();
+@OneToMany(mappedBy = "cycle", cascade = CascadeType.ALL)
+private Set<AcademicSection> sections = new HashSet<>();
+
+
+    // @OneToMany(mappedBy = "cycle", cascade = CascadeType.ALL, orphanRemoval = true)
+    // private List<AcademicLevel> levels = new ArrayList<>();
+
+    @OneToMany(mappedBy = "cycle", cascade = CascadeType.ALL)
+private Set<AcademicLevel> levels = new HashSet<>();
+
+
 }

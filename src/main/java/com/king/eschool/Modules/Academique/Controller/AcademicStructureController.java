@@ -20,6 +20,7 @@ import com.king.eschool.Modules.Academique.ServiceImpl.AcademicCycleService;
 import jakarta.validation.Valid;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/academic-structures")
@@ -133,8 +134,8 @@ public ResponseEntity<AcademicLevelDTO> assignOptionToLevel(
      * Permissions : SCHOOL_ADMIN / TEACHER (academic_structure:read.all)
      */
     @GetMapping("/tree/{schoolId}")
-    @PreAuthorize("hasAuthority('academic_structure:read.all')")
-    public ResponseEntity<List<CycleNodeDTO>> getStructureTree(@PathVariable String schoolId) {
+    @PreAuthorize("hasAuthority('academic-year:read.all')")
+    public ResponseEntity<List<CycleNodeDTO>> getStructureTree(@PathVariable UUID schoolId) {
         List<CycleNodeDTO> tree = cycleService.getStructureTree(schoolId);
         return ResponseEntity.ok(tree);
     }

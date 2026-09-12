@@ -3,6 +3,7 @@ package com.king.eschool.Modules.Academique.Models;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDate;
+import java.util.UUID;
 
 import com.king.eschool.Modules.Academique.Enum.AcademicPeriodStatus;
 
@@ -11,13 +12,16 @@ import com.king.eschool.Modules.Academique.Enum.AcademicPeriodStatus;
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class AcademicPeriod {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
+        @Id
+        @GeneratedValue(strategy = GenerationType.UUID)
+        private UUID id;
+    // @ManyToOne(fetch = FetchType.LAZY)
+    // @JoinColumn(name = "academic_year_id", nullable = false)
+    // private AcademicYear academicYear;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "academic_year_id", nullable = false)
-    private AcademicYear academicYear;
+    private UUID academicYearId;
+    private  UUID academicTermId;
+    private  UUID schoolId;
 
     @Column(nullable = false, length = 100)
     private String name; // Ex: Premier Trimestre
@@ -34,4 +38,8 @@ public class AcademicPeriod {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AcademicPeriodStatus status;
+
+
+
+
 }

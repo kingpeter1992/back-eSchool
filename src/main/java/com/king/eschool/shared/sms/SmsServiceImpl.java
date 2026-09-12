@@ -27,10 +27,7 @@ public class SmsServiceImpl {
     @Value("${twilio.trial-number}")
     private String fromPhoneNumber;
 
-    // @Value("${app.frontend.url:https://mon-ecole.com}")
-    // private String frontendUrl;
-
-       @Value("${app.front-url}")
+    @Value("${app.front-url}")
     private String appFrontUrl;
 
     @PostConstruct
@@ -39,37 +36,46 @@ public class SmsServiceImpl {
     }
 
     /**
-     * Envoie la notification SMS au candidat après création de sa demande.
+     * Envoie un SMS générique de manière asynchrone via Twilio.
      */
     @Async
-    public void sendEnrollmentNotificationSms(String toPhoneNumber, String registrationNo, LocalDate submissionDate) {
+    public void sendSms(String candidatePhone, String messageSms) {
+        if (candidatePhone == null || candidatePhone.isBlank()) {
+            log.warn("Tentative d'envoi de SMS annulée : numéro de téléphone nul ou vide.");
+            return;
+        }
+
+        try {
+            Message message = Message.creator(
+                new PhoneNumber(candidatePhone),
+                new PhoneNumber(fromPhoneNumber),
+                messageSms
+            ).create();
+
+            log.info("SMS envoyé avec succès à {} ! SID: {}", candidatePhone, message.getSid());
+        } catch (Exception e) {
+            log.error("Erreur lors de l'envoi du SMS Twilio à {}: {}", candidatePhone, e.getMessage());
+        }
+    }
+
+    /**
+     * Envoie la notification SMS d'inscription avec le token de suivi (valide 3 mois).
+     */
+    @Async
+    public void sendEnrollmentNotificationSms(String toPhoneNumber, String registrationNo, String trackingToken) {
         if (toPhoneNumber == null || toPhoneNumber.isBlank()) {
             return;
         }
 
-        String formattedDate = submissionDate != null ? submissionDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) : LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-        String verificationUrl = appFrontUrl + "/verify-status?registrationNo=" + registrationNo;
+        String trackingUrl = appFrontUrl + "/verify-status?token=" + trackingToken;
 
         String messageBody = String.format(
-            "eSchool: Votre demande d'inscription a été enregistrée avec succès.\n" +
-            "- N° Dossier: %s\n" +
-            "- Date: %s\n" +
-            "Suivez l'avancement de votre dossier ici : %s",
+            "eSchool: Votre demande d'inscription N° %s a été bien reçue.\n" +
+            "Suivez votre dossier (accès direct 3 mois) : %s",
             registrationNo,
-            formattedDate,
-            verificationUrl
+            trackingUrl
         );
 
-        try {
-            Message message = Message.creator(
-                new PhoneNumber(toPhoneNumber),  // Destinataire
-                new PhoneNumber(fromPhoneNumber), // Numéro Twilio
-                messageBody
-            ).create();
-
-            log.info("SMS envoyé avec succès ! SID: {}", message.getSid());
-        } catch (Exception e) {
-            log.error("Erreur lors de l'envoi du SMS Twilio à {}: {}", toPhoneNumber, e.getMessage());
-        }
+        sendSms(toPhoneNumber, messageBody);
     }
 }

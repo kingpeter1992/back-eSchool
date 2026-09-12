@@ -1,12 +1,17 @@
 package com.king.eschool.Modules.Admission.ServiceImpl;
 
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.king.eschool.Audite.ServiceImpl.AuditService;
 import com.king.eschool.Core.config.EmailServiceImpl;
+import com.king.eschool.Modules.Academique.Models.AcademicYear;
 import com.king.eschool.Modules.Academique.Models.SchoolClass;
+import com.king.eschool.Modules.Academique.Repository.AcademicYearRepository;
 import com.king.eschool.Modules.Academique.Repository.SchoolClassRepository;
 import com.king.eschool.Modules.Admission.Dto.request.AssignClassRequestDTO;
 import com.king.eschool.Modules.Admission.Dto.request.CreateEnrollmentRequestDTO;
@@ -19,23 +24,23 @@ import com.king.eschool.Modules.Admission.Dto.response.EnrollmentSummaryResponse
 import com.king.eschool.Modules.Admission.Models.Enrollment;
 import com.king.eschool.Modules.Admission.Models.EnrollmentDocument;
 import com.king.eschool.Modules.Admission.Models.EnrollmentStatus;
+import com.king.eschool.Modules.Admission.Models.PaymentInfoDTO;
 import com.king.eschool.Modules.Admission.Repository.EnrollmentDocumentRepository;
 import com.king.eschool.Modules.Admission.Repository.EnrollmentRepository;
 import com.king.eschool.Modules.School.Models.Campus;
 import com.king.eschool.Modules.School.Models.School;
 import com.king.eschool.Modules.School.Repository.CampusRepository;
 import com.king.eschool.Modules.School.Repository.SchoolRepository;
+import com.king.eschool.Utilities.TrackingTokenProvider;
 import com.king.eschool.shared.Storage.Services.FileStorageService;
 import com.king.eschool.shared.Storage.dtoResponse.FileDocumentResponse;
 import com.king.eschool.shared.sms.SmsServiceImpl;
 
 import jakarta.persistence.EntityNotFoundException;
 
-import java.lang.StackWalker.Option;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -51,92 +56,13 @@ public class EnrollmentServiceImpl {
     private final FileStorageService    fileStorageService; // Module Supabase Backend
     private final SmsServiceImpl smsService; // Injection du service SMS
     private  final EnrollmentDocumentRepository enrollmentDocumentRepository;
+    private  final AcademicYearRepository academicYearRepository;
+    private final AuditService auditService;
+
+    private final TrackingTokenProvider trackingTokenProvider;
     
-    @Transactional
-public EnrollmentResponseDTO create(
-        CreateEnrollmentRequestDTO request, 
-        MultipartFile photo, 
-        List<MultipartFile> documents
-) {
-
-    // 1. Sauvegarde initiale pour générer l'ID (UUID ou Long) du candidat
-    String registrationNo = generateRegistrationNumber(request.getSchoolId(), request.getAcademicYearId());
-
-    Enrollment enrollment = Enrollment.builder()
-            .schoolId(request.getSchoolId())
-            .campusId(request.getCampusId())
-            .academicYearId(request.getAcademicYearId())
-            .candidateFirstName(request.getCandidateFirstName())
-            .candidateLastName(request.getCandidateLastName())
-            .candidateDateOfBirth(request.getCandidateDateOfBirth())
-            .candidateEmail(request.getCandidateEmail())
-            .candidatePhone(request.getCandidatePhone())
-            .registrationNo(registrationNo)
-            .status(EnrollmentStatus.PENDING)
-            .build();
-
-    Enrollment saved = enrollmentRepository.save(enrollment);
-
-    // 2. Upload de la photo de profil reliée à l'ID du candidat
-    if (photo != null && !photo.isEmpty()) {
-        FileDocumentResponse photoResponse = fileStorageService.uploadFile(
-                photo, 
-                "enrollments/photos", 
-                saved.getId() // L'ID réel du candidat au lieu de 0L
-        );
-        saved.setPhotoUrl(photoResponse.getPublicUrl());
-        saved = enrollmentRepository.save(saved); // Mise à jour de l'URL photo
-    }
-
-    // 3. Upload des documents joints et sauvegarde en base
-    if (documents != null && !documents.isEmpty()) {
-        for (int i = 0; i < documents.size(); i++) {
-            MultipartFile doc = documents.get(i);
-            
-            if (doc != null && !doc.isEmpty()) {
-                // Stockage sur Supabase dans un dossier identifié par l'ID du candidat
-                FileDocumentResponse docResponse = fileStorageService.uploadFile(
-                        doc, 
-                        "enrollments/documents", 
-                        saved.getId()
-                );
-
-                // Récupération du type de document correspondant depuis le DTO (ex: "Diplôme", "Actes")
-                String docType = (request.getDocumentTypes() != null && i < request.getDocumentTypes().size())
-                ? request.getDocumentTypes().get(i)
-                : "Document joint";
-
-                // Création du lien fort en BDD entre le document et le candidat
-                EnrollmentDocument document = EnrollmentDocument.builder()
-                        .enrollment(saved) // Clé étrangère vers l'entité Enrollment
-                        .documentType(docType)
-                        .fileName(doc.getOriginalFilename())
-                        .fileType(doc.getContentType())
-                        .fileUrl(docResponse.getPublicUrl()) // URL publique distante Supabase
-                        .build();
-
-                enrollmentDocumentRepository.save(document);
-            }
-        }
-    }
-
-    // 4. Notification Email
-    if (request.getCandidateEmail() != null && !request.getCandidateEmail().isBlank()) {
-        String fullName = request.getCandidateFirstName() + " " + request.getCandidateLastName();
-        emailServiceImpl.sendEnrollmentConfirmationEmail(request.getCandidateEmail(), fullName, registrationNo);
-    }
-
-    // 5. Notification SMS (Twilio)
-    if (request.getCandidatePhone() != null && !request.getCandidatePhone().isBlank()) {
-        smsService.sendEnrollmentNotificationSms(
-            request.getCandidatePhone(), 
-            registrationNo, 
-            LocalDate.now()
-        );
-    }
-
-    return mapToResponse(saved);
-}
+    @Value("${app.front-url}")
+    private String appFrontUrl;
 
     @Transactional(readOnly = true)
     public EnrollmentResponseDTO getById(UUID id) {
@@ -213,6 +139,7 @@ public EnrollmentResponseDTO create(
             // Délègue la vérification de capacité et de statut à assignClass
             return assignClass(assignDTO);
         }
+        
 
         return mapToResponse(enrollmentRepository.save(enrollment));
     }
@@ -271,31 +198,28 @@ public EnrollmentResponseDTO create(
                 .orElseThrow(() -> new EntityNotFoundException("Inscription introuvable : " + id));
         enrollmentRepository.delete(enrollment);
     }
+private String generateRegistrationNumber(UUID schoolId, UUID academicYearId) {
+    String registrationNo;
+    boolean exists;
+    int maxAttempts = 10;
+    int attempts = 0;
 
-    private String generateRegistrationNumber(UUID schoolId, UUID academicYearId) {
-        long count = enrollmentRepository.countByClassIdAndAcademicYearId(schoolId, academicYearId);
-        long sequence = count + 1;
-        return String.format("ECOLE%d%04d", LocalDate.now().getYear(), sequence);
-    }
+    do {
+        // Exemple : ENR-2026-8902
+        int randomSuffix = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000, 9999);
+        int year = java.time.LocalDate.now().getYear();
+        registrationNo = String.format("ENR-%d-%d", year, randomSuffix);
 
-    private EnrollmentResponseDTO mapToResponse(Enrollment enrollment) {
-        return EnrollmentResponseDTO.builder()
-                .id(enrollment.getId())
-                .schoolId(enrollment.getSchoolId())
-                .campusId(enrollment.getCampusId())
-                .studentId(enrollment.getStudentId())
-                .studentName(enrollment.getStudentId() != null ? 
-                        "Nom Élève" : enrollment.getCandidateFirstName() + " " + enrollment.getCandidateLastName())
-                .classId(enrollment.getClassId())
-                .academicYearId(enrollment.getAcademicYearId())
-                .registrationNo(enrollment.getRegistrationNo())
-                .status(enrollment.getStatus())
-                .admissionDate(enrollment.getAdmissionDate())
-                .createdAt(enrollment.getCreatedAt())
-                .updatedAt(enrollment.getUpdatedAt())
-                .build();
-    }
+        exists = enrollmentRepository.existsByRegistrationNo(registrationNo);
+        attempts++;
 
+        if (attempts >= maxAttempts) {
+            throw new IllegalStateException("Impossible de générer un numéro de dossier unique après plusieurs tentatives.");
+        }
+    } while (exists);
+
+    return registrationNo;
+}
 
 @Transactional(readOnly = true)
 public EnrollmentStatusResponseDTO getPublicStatus(String registrationNo) {
@@ -358,4 +282,193 @@ public EnrollmentStatusResponseDTO getPublicStatus(String registrationNo) {
             .remarks(enrollment.getRemarks())
             .build();
 }
+
+
+
+
+    @Transactional
+public EnrollmentResponseDTO create(
+        CreateEnrollmentRequestDTO request, 
+        MultipartFile photo, 
+        List<MultipartFile> documents
+) {
+    String registrationNo = generateRegistrationNumber(request.getSchoolId(), request.getAcademicYearId());
+
+    // 1. Instanciation de l'entité
+    Enrollment enrollment = Enrollment.builder()
+            .schoolId(request.getSchoolId())
+            .campusId(request.getCampusId())
+            .academicYearId(request.getAcademicYearId())
+            .candidateFirstName(request.getCandidateFirstName())
+            .candidatePostName(request.getCandidatePostName())
+            .candidateLastName(request.getCandidateLastName())
+            .gender(request.getGender())
+            .candidateDateOfBirth(request.getCandidateDateOfBirth())
+            .placeOfBirth(request.getPlaceOfBirth())
+            .candidatePhone(request.getCandidatePhone())
+            .candidateEmail(request.getCandidateEmail())
+            .address(request.getAddress())
+            .city(request.getCity())
+            .maritalStatus(request.getMaritalStatus())
+            .nationality(request.getNationality())
+            .originVillage(request.getOriginVillage())
+            .district(request.getDistrict())
+            .territory(request.getTerritory())
+            .parentFullName(request.getParentFullName())
+            .parentPhone(request.getParentPhone())
+            .parentAddress(request.getParentAddress())
+            .vacation(request.getVacation())
+            .cycleId(request.getCycleId())
+            .levelId(request.getLevelId())
+            .sectionId(request.getSectionId())
+            .optionId(request.getOptionId())
+            .targetClass(request.getTargetClass())
+            .previousSchool(request.getPreviousSchool())
+            .previousPercentage(request.getPreviousPercentage())
+            .registrationNo(registrationNo)
+            .status(EnrollmentStatus.PENDING)
+            .build();
+
+    Enrollment saved = enrollmentRepository.save(enrollment);
+
+    // 2 & 3. Sauvegarde Photo et Documents (Inchangés)
+    if (photo != null && !photo.isEmpty()) {
+        FileDocumentResponse photoResponse = fileStorageService.uploadFile(photo, "enrollments/photos", saved.getId());
+        saved.setPhotoUrl(photoResponse.getPublicUrl());
+        saved = enrollmentRepository.save(saved);
+    }
+
+    if (documents != null && !documents.isEmpty()) {
+        for (int i = 0; i < documents.size(); i++) {
+            MultipartFile doc = documents.get(i);
+            if (doc != null && !doc.isEmpty()) {
+                FileDocumentResponse docResponse = fileStorageService.uploadFile(doc, "enrollments/documents", saved.getId());
+                String docType = (request.getDocumentTypes() != null && i < request.getDocumentTypes().size())
+                        ? request.getDocumentTypes().get(i) : "Document joint";
+
+                EnrollmentDocument document = EnrollmentDocument.builder()
+                        .enrollment(saved)
+                        .documentType(docType)
+                        .fileName(doc.getOriginalFilename())
+                        .fileType(doc.getContentType())
+                        .fileUrl(docResponse.getPublicUrl())
+                        .build();
+
+                saved.getDocuments().add(enrollmentDocumentRepository.save(document));
+            }
+        }
+    }
+
+    // --- GÉNÉRATION DU LIEN DE SUIVI (VALIDE 3 MOIS) ---
+    String trackingToken = trackingTokenProvider.generateTrackingToken(registrationNo);
+    String trackingUrl = appFrontUrl + "/verify-status?token=" + trackingToken;
+
+    // 4. Notification Email avec le Lien direct
+    if (request.getCandidateEmail() != null && !request.getCandidateEmail().isBlank()) {
+        String fullName = request.getCandidateFirstName() + " " + request.getCandidateLastName();
+        emailServiceImpl.sendEnrollmentConfirmationEmailWithLink(
+                request.getCandidateEmail(), 
+                fullName, 
+                registrationNo, 
+                trackingUrl
+        );
+    }
+
+    // 5. Notification SMS avec le Lien
+    if (request.getCandidatePhone() != null && !request.getCandidatePhone().isBlank()) {
+        String messageSms = String.format(
+                "Votre inscription eSchool (%s) est reçue. Suivez votre dossier via ce lien (valable 3 mois) : %s",
+                registrationNo,
+                trackingUrl
+        );
+        smsService.sendSms(request.getCandidatePhone(), messageSms);
+    }
+
+    return mapToResponse(saved);
+}
+
+    private EnrollmentResponseDTO mapToResponse(Enrollment enrollment) {
+
+        String schoolName = schoolRepository.findById(enrollment.getSchoolId())
+                .map(School::getName).orElse(null);
+        String campusName = campusRepository.findById(enrollment.getCampusId())
+                .map(Campus::getName).orElse(null);
+        String yearName = academicYearRepository.findById(enrollment.getAcademicYearId())
+                .map(AcademicYear::getName).orElse(null);
+        String className = enrollment.getClassId() != null 
+                ? schoolClassRepository.findById(enrollment.getClassId()).map(SchoolClass::getName).orElse(null)
+                : null;
+
+        List<EnrollmentResponseDTO.DocumentResponseDTO> docsDto = enrollment.getDocuments() != null
+                ? enrollment.getDocuments().stream().map(doc -> EnrollmentResponseDTO.DocumentResponseDTO.builder()
+                        .id(doc.getId())
+                        .documentType(doc.getDocumentType())
+                        .fileName(doc.getFileName())
+                        .fileType(doc.getFileType())
+                        .fileUrl(doc.getFileUrl())
+                        .build()).collect(Collectors.toList())
+                : List.of();
+
+        return EnrollmentResponseDTO.builder()
+                .id(enrollment.getId())
+                .registrationNo(enrollment.getRegistrationNo())
+                .status(enrollment.getStatus())
+                .photoUrl(enrollment.getPhotoUrl())
+                .remarks(enrollment.getRemarks())
+                // Contexte
+                .schoolId(enrollment.getSchoolId())
+                .schoolName(schoolName)
+                .campusId(enrollment.getCampusId())
+                .campusName(campusName)
+                .academicYearId(enrollment.getAcademicYearId())
+                .academicYearName(yearName)
+                .studentId(enrollment.getStudentId())
+                .studentName(enrollment.getStudentId() != null 
+                        ? "Nom Élève" 
+                        : enrollment.getCandidateFirstName() + " " + enrollment.getCandidateLastName())
+                .studentEmail(enrollment.getCandidateEmail())
+                .classId(enrollment.getClassId())
+                .className(className)
+                // Informations Candidat
+                .candidateFirstName(enrollment.getCandidateFirstName())
+                .candidatePostName(enrollment.getCandidatePostName())
+                .candidateLastName(enrollment.getCandidateLastName())
+                .gender(enrollment.getGender())
+                .candidateDateOfBirth(enrollment.getCandidateDateOfBirth())
+                .placeOfBirth(enrollment.getPlaceOfBirth())
+                .candidatePhone(enrollment.getCandidatePhone())
+                .candidateEmail(enrollment.getCandidateEmail())
+                .address(enrollment.getAddress())
+                .city(enrollment.getCity())
+                .maritalStatus(enrollment.getMaritalStatus())
+                .nationality(enrollment.getNationality())
+                .originVillage(enrollment.getOriginVillage())
+                .district(enrollment.getDistrict())
+                .territory(enrollment.getTerritory())
+                // Parent
+                .parentUserId(enrollment.getParentUserId())
+                .parentFullName(enrollment.getParentFullName())
+                .parentPhone(enrollment.getParentPhone())
+                .parentAddress(enrollment.getParentAddress())
+                // Orientation
+                .vacation(enrollment.getVacation())
+                .cycleId(enrollment.getCycleId())
+                .levelId(enrollment.getLevelId())
+                .sectionId(enrollment.getSectionId())
+                .optionId(enrollment.getOptionId())
+                .targetClass(enrollment.getTargetClass())
+                .previousSchool(enrollment.getPreviousSchool())
+                .previousPercentage(enrollment.getPreviousPercentage())
+                // Règlement
+                // .paymentReference(enrollment.getPaymentReference())
+                // .paymentMethod(enrollment.getPaymentMethod())
+                // .paymentPhoneOrCard(enrollment.getPaymentPhoneOrCard())
+                // .amountPaid(enrollment.getAmountPaid())
+                // Documents & Dates
+                .documents(docsDto)
+                .admissionDate(enrollment.getAdmissionDate())
+                .createdAt(enrollment.getCreatedAt())
+                .updatedAt(enrollment.getUpdatedAt())
+                .build();
+    }
 }

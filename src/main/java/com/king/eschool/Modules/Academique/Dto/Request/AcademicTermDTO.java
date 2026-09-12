@@ -1,25 +1,28 @@
 package com.king.eschool.Modules.Academique.Dto.Request;
 
+
 import java.time.LocalDate;
 import java.util.UUID;
 
-import com.king.eschool.Modules.Academique.Enum.AcademicPeriodStatus;
+import com.king.eschool.Modules.Academique.Enum.AcademicTermStatus;
 
-import lombok.*;
-
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 @Data
 @Builder
 @NoArgsConstructor
-@AllArgsConstructor 
-public class AcademicPeriodDTO{
+@AllArgsConstructor
+public class  AcademicTermDTO {
         UUID id;
         UUID academicYearId;
         UUID schoolId;
-        UUID academicTermId;
+        String type;
         String name;
         String code;
         LocalDate startDate;
         LocalDate endDate;
-        AcademicPeriodStatus status;
+        AcademicTermStatus status;
 
 }

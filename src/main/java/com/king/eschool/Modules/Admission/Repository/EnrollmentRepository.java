@@ -1,6 +1,7 @@
 package com.king.eschool.Modules.Admission.Repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import com.king.eschool.Modules.Admission.Models.Enrollment;
 import com.king.eschool.Modules.Admission.Models.EnrollmentStatus;
@@ -67,5 +68,10 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, UUID> {
     int countByClassIdAndAcademicYearId(UUID classId, UUID academicYearId);
 
     Optional<Enrollment> findByRegistrationNo(String registrationNo);
+
+
+    @Query(value = "SELECT nextval('enrollment_reg_no_seq')", nativeQuery = true)
+    Long getNextRegistrationSequence();
+
     
 }

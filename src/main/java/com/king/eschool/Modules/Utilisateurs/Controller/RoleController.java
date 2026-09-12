@@ -12,7 +12,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.king.eschool.Modules.Utilisateurs.Dto.reponse.RoleRespons;
+import com.king.eschool.Modules.Utilisateurs.Dto.reponse.RoleResponse;
+import com.king.eschool.Modules.Utilisateurs.Dto.reponse.UserResponseDto.RoleResponseDto;
 import com.king.eschool.Modules.Utilisateurs.Dto.request.RoleDto;
 import com.king.eschool.Modules.Utilisateurs.ServiceImplement.RoleService;
 
@@ -48,7 +49,7 @@ public ResponseEntity<Void> updateRolePermissions(
 
 @GetMapping("/getallRoles")
     @PreAuthorize("hasAuthority('ROLE_SUPER_ADMIN') or hasAuthority('ROLE_ADMIN_ECOLE')")
-    public ResponseEntity<List<RoleRespons>> getAllRoles() {
+    public ResponseEntity<List<RoleResponse>> getAllRoles() {
         return ResponseEntity.ok(roleService.getAllRoles());
     }
 }

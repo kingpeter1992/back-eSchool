@@ -337,7 +337,7 @@ public void deleteOption(String id) {
     optionRepository.delete(option);
 }
 
-public List<CycleNodeDTO> getStructureTree(String schoolId) {
+public List<CycleNodeDTO> getStructureTree(UUID schoolId) {
         // Récupération de tous les cycles de l'école avec leurs relations
         List<AcademicCycle> cycles = cycleRepository.findBySchoolIdWithFullTree(schoolId);
 

@@ -4,9 +4,7 @@ package com.king.eschool.Modules.Academique.Controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.king.eschool.Modules.Academique.Dto.Request.AcademicPeriodDTO;
 import com.king.eschool.Modules.Academique.Dto.Request.AcademicYearDTO;
-import com.king.eschool.Modules.Academique.ServiceImpl.AcademicPeriodService;
 import com.king.eschool.Modules.Academique.ServiceImpl.AcademicYearService;
 
 import java.util.List;
@@ -17,44 +15,96 @@ import java.util.UUID;
 public class AcademicYearController {
     
     private final AcademicYearService yearService;
-    private final AcademicPeriodService periodService;
 
-    public AcademicYearController(AcademicYearService yearService, AcademicPeriodService periodService) {
+    public AcademicYearController(AcademicYearService yearService) {
         this.yearService = yearService;
-        this.periodService = periodService;
     }
 
-    // ➕ AJOUT : Endpoint pour récupérer l'année académique active
-   @GetMapping("/active")
-public ResponseEntity<AcademicYearDTO> getActiveYear(@RequestParam UUID schoolId) {
-    return ResponseEntity.ok(yearService.getActiveYearBySchool(schoolId));
-}
-        // --- Années Scolaires ---
+    // ============================================================
+    // ANNÉE SCOLAIRE / ACADÉMIQUE
+    // ============================================================
+
+    /**
+     * Récupérer toutes les années scolaires d'une école
+     */
+    @GetMapping("/academic-years-list")
+    public ResponseEntity<List<AcademicYearDTO>> getYears(
+            @RequestParam UUID schoolId
+    ) {
+        return ResponseEntity.ok(
+                yearService.getYearsBySchool(schoolId)
+        );
+    }
+
+    /**
+     * Récupérer l'année scolaire active d'une école
+     */
+    @GetMapping("/active")
+    public ResponseEntity<AcademicYearDTO> getActiveYear(
+            @RequestParam UUID schoolId
+    ) {
+        return ResponseEntity.ok(
+                yearService.getActiveYearBySchool(schoolId)
+        );
+    }
+
+    /**
+     * Créer une année scolaire pour une école
+     *
+     * Exemple :
+     * POST /api/v1/academic-years/academic-years-create?schoolId=xxx
+     */
     @PostMapping("/academic-years-create")
     public ResponseEntity<AcademicYearDTO> createYear(
-        @RequestParam UUID schoolId, @RequestBody AcademicYearDTO dto) {
-        return ResponseEntity.ok(yearService.createYear(schoolId, dto));
+            @RequestParam UUID schoolId,
+            @RequestBody AcademicYearDTO dto
+    ) {
+        return ResponseEntity.ok(
+                yearService.createYear(schoolId, dto)
+        );
     }
 
-    @GetMapping("/academic-years-list")
-    public ResponseEntity<List<AcademicYearDTO>> getYears(@RequestParam UUID schoolId) {
-        return ResponseEntity.ok(yearService.getYearsBySchool(schoolId));
-    }
-
+    /**
+     * Activer une année scolaire
+     *
+     * Une seule année devrait être ACTIVE pour une école.
+     */
     @PatchMapping("/academic-years/{id}/activate")
     public ResponseEntity<AcademicYearDTO> activateYear(
-        @RequestParam UUID schoolId, @PathVariable UUID id) {
-        return ResponseEntity.ok(yearService.activateYear(schoolId, id));
+            @RequestParam UUID schoolId,
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(
+                yearService.activateYear(schoolId, id)
+        );
     }
 
-    // --- Périodes Académiques ---
-    @PostMapping("/academic-periods")
-    public ResponseEntity<AcademicPeriodDTO> createPeriod(@RequestBody AcademicPeriodDTO dto) {
-        return ResponseEntity.ok(periodService.createPeriod(dto));
+    /**
+     * Récupérer une année scolaire par son ID
+     *
+     * L'année est également vérifiée par rapport à l'école.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<AcademicYearDTO> getYearById(
+            @RequestParam UUID schoolId,
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(
+                yearService.getById(schoolId, id)
+        );
     }
 
-    @GetMapping("/academic-periods")
-    public ResponseEntity<List<AcademicPeriodDTO>> getPeriods(@RequestParam String yearId) {
-        return ResponseEntity.ok(periodService.getPeriodsByYear(yearId));
-    }
+
+    //la  modificatin des l'année scolaire
+    @PutMapping("/{id}")
+public ResponseEntity<AcademicYearDTO> updateYear(
+        @RequestParam UUID schoolId,
+        @PathVariable UUID id,
+        @RequestBody AcademicYearDTO dto
+) {
+    return ResponseEntity.ok(
+            yearService.updateYear(schoolId, id, dto)
+    );
+}
+    
 }
